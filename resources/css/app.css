@@ -1,0 +1,32 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-display: Georgia, 'Times New Roman', 'Noto Serif', serif;
+
+    /* Paleta LogiCoffee — verdes del café premium */
+    --color-coffee-50: #f4f8ee;
+    --color-coffee-100: #e4efd7;
+    --color-coffee-200: #cfe3b8;
+    --color-coffee-300: #9cbf87;
+    --color-coffee-400: #7fa95c;
+    --color-coffee-500: #5c8a3c;
+    --color-coffee-600: #4a7c3f;
+    --color-coffee-700: #2c5530;
+    --color-coffee-800: #1e3d24;
+    --color-coffee-900: #17331c;
+
+    /* Acentos: mostaza para acciones destacadas, ladrillo para acciones destructivas */
+    --color-mostaza-400: #e9c46a;
+    --color-mostaza-500: #d9a441;
+    --color-ladrillo-500: #b5453a;
+}
+
+/* El modal de confirmación usa <dialog>; el fondo replica bg-coffee-900/50. */
+dialog::backdrop {
+    background-color: color-mix(in oklab, var(--color-coffee-900) 50%, transparent);
+}
