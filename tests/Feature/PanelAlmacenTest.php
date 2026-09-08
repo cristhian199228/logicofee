@@ -10,6 +10,7 @@ use App\Models\PedidoLinea;
 use App\Models\Producto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class PanelAlmacenTest extends TestCase
@@ -27,14 +28,16 @@ class PanelAlmacenTest extends TestCase
         Pedido::factory()->enEstado(EstadoPedido::Pendiente)->create();
         Pedido::factory()->enEstado(EstadoPedido::Entregado)->create();
 
-        $this->actingAs($this->logistica())
-            ->get(route('almacen.index'))
-            ->assertOk()
+        $almacen = Livewire::actingAs($this->logistica())
+            ->test('almacen')
             ->assertSee('Panel de almacén')
-            ->assertViewHas('unidadesDisponibles', 45)
-            ->assertViewHas('valorInventario', 450.00)
-            ->assertViewHas('unidadesMermadas', 5)
-            ->assertViewHas('pedidosPorDespachar', 1);
+            ->instance()
+            ->almacen;
+
+        $this->assertSame(45, $almacen->unidadesDisponibles());
+        $this->assertSame(450.00, $almacen->valorInventario());
+        $this->assertSame(5, $almacen->unidadesMermadas());
+        $this->assertSame(1, $almacen->pedidosPorDespachar());
     }
 
     public function test_el_panel_sugiere_reponer_los_productos_en_el_minimo(): void
@@ -42,13 +45,16 @@ class PanelAlmacenTest extends TestCase
         Producto::factory()->agotado()->create(['nombre' => 'Mocha Espresso', 'stock_minimo' => 20]);
         Producto::factory()->conStock(80)->create(['nombre' => 'Bourbon Salvador', 'stock_minimo' => 10]);
 
-        $this->actingAs($this->logistica())
-            ->get(route('almacen.index'))
-            ->assertOk()
+        $reposicion = Livewire::actingAs($this->logistica())
+            ->test('almacen')
             ->assertSee('Reponer 40 uds')
-            ->assertViewHas('reposicion', fn ($reposicion) => $reposicion->count() === 1
-                && $reposicion->first()['producto']->nombre === 'Mocha Espresso'
-                && $reposicion->first()['sugerido'] === 40);
+            ->instance()
+            ->almacen
+            ->reposicionSugerida();
+
+        $this->assertCount(1, $reposicion);
+        $this->assertSame('Mocha Espresso', $reposicion->first()['producto']->nombre);
+        $this->assertSame(40, $reposicion->first()['sugerido']);
     }
 
     public function test_el_panel_separa_los_lotes_vencidos_de_los_que_estan_por_vencer(): void
@@ -58,13 +64,15 @@ class PanelAlmacenTest extends TestCase
         $porVencer = Lote::factory()->for($producto)->conCantidad(20)->porVencer()->create(['codigo' => 'L-9002']);
         Lote::factory()->for($producto)->conCantidad(30)->create(['codigo' => 'L-9003']);
 
-        $this->actingAs($this->logistica())
-            ->get(route('almacen.index'))
-            ->assertOk()
+        $almacen = Livewire::actingAs($this->logistica())
+            ->test('almacen')
             ->assertSee('L-9001')
             ->assertSee('L-9002')
-            ->assertViewHas('vencidos', fn ($lotes) => $lotes->pluck('id')->all() === [$vencido->id])
-            ->assertViewHas('porVencer', fn ($lotes) => $lotes->pluck('id')->all() === [$porVencer->id]);
+            ->instance()
+            ->almacen;
+
+        $this->assertSame([$vencido->id], $almacen->lotesVencidos()->pluck('id')->all());
+        $this->assertSame([$porVencer->id], $almacen->lotesPorVencer()->pluck('id')->all());
     }
 
     public function test_la_cobertura_estima_los_dias_de_stock_segun_lo_vendido(): void
@@ -74,10 +82,13 @@ class PanelAlmacenTest extends TestCase
         // 30 unidades en la ventana de 30 días: una por día, dos meses de stock.
         PedidoLinea::factory()->deProducto($producto, 30)->create();
 
-        $this->actingAs($this->logistica())
-            ->get(route('almacen.index'))
-            ->assertOk()
-            ->assertViewHas('cobertura', fn ($cobertura) => $cobertura->firstWhere('producto.nombre', 'Bourbon Salvador')['dias'] === 60.0);
+        $cobertura = Livewire::actingAs($this->logistica())
+            ->test('almacen')
+            ->instance()
+            ->almacen
+            ->coberturaPorProducto();
+
+        $this->assertSame(60.0, $cobertura->firstWhere('producto.nombre', 'Bourbon Salvador')['dias']);
     }
 
     public function test_direccion_ve_el_panel_pero_sin_los_controles_de_baja(): void

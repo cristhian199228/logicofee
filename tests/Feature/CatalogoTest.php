@@ -7,6 +7,7 @@ use App\Enums\Rol;
 use App\Models\Producto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class CatalogoTest extends TestCase
@@ -26,7 +27,7 @@ class CatalogoTest extends TestCase
         }
     }
 
-    public function test_el_catalogo_filtra_por_categoria(): void
+    public function test_el_catalogo_filtra_por_categoria_sin_recargar(): void
     {
         $grano = Producto::factory()->create([
             'nombre' => 'Bourbon Salvador',
@@ -37,23 +38,45 @@ class CatalogoTest extends TestCase
             'categoria' => CategoriaProducto::Blends,
         ]);
 
-        $this->actingAs($this->cliente())
-            ->get(route('catalogo.index', ['categoria' => CategoriaProducto::EnGrano->value]))
-            ->assertOk()
+        $catalogo = Livewire::actingAs($this->cliente())
+            ->test('catalogo')
             ->assertSee($grano->nombre)
-            ->assertDontSee($blend->nombre);
+            ->assertSee($blend->nombre)
+            ->call('filtrarPor', CategoriaProducto::EnGrano->value);
+
+        $nombres = $catalogo->instance()->productos->pluck('nombre');
+
+        $this->assertTrue($nombres->contains($grano->nombre));
+        $this->assertFalse($nombres->contains($blend->nombre));
     }
 
-    public function test_el_catalogo_busca_por_nombre_y_descripcion(): void
+    public function test_el_catalogo_busca_por_nombre_y_descripcion_mientras_se_escribe(): void
     {
         $buscado = Producto::factory()->create(['nombre' => 'Descafeinado de Altura']);
         $otro = Producto::factory()->create(['nombre' => 'Mocha Espresso', 'descripcion' => 'Tueste oscuro.']);
 
+        $catalogo = Livewire::actingAs($this->cliente())
+            ->test('catalogo')
+            ->set('busqueda', 'descafeinado');
+
+        $nombres = $catalogo->instance()->productos->pluck('nombre');
+
+        $this->assertTrue($nombres->contains($buscado->nombre));
+        $this->assertFalse($nombres->contains($otro->nombre));
+    }
+
+    public function test_la_busqueda_y_la_categoria_viajan_en_la_direccion(): void
+    {
+        Producto::factory()->create(['nombre' => 'Bourbon Salvador']);
+
         $this->actingAs($this->cliente())
-            ->get(route('catalogo.index', ['q' => 'descafeinado']))
-            ->assertOk()
-            ->assertSee($buscado->nombre)
-            ->assertDontSee($otro->nombre);
+            ->get(route('catalogo.index', ['q' => 'bourbon', 'categoria' => CategoriaProducto::EnGrano->value]))
+            ->assertOk();
+
+        Livewire::actingAs($this->cliente())
+            ->withQueryParams(['q' => 'bourbon'])
+            ->test('catalogo')
+            ->assertSet('busqueda', 'bourbon');
     }
 
     public function test_un_producto_agotado_no_ofrece_el_boton_de_agregar(): void

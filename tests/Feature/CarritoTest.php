@@ -7,19 +7,21 @@ use App\Models\Producto;
 use App\Models\User;
 use App\Support\Carrito;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class CarritoTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_agrega_un_producto_al_pedido(): void
+    public function test_agrega_un_producto_al_pedido_desde_el_catalogo(): void
     {
         $producto = Producto::factory()->conStock(10)->create();
 
-        $this->actingAs($this->cliente())
-            ->post(route('carrito.store'), ['producto' => $producto->slug])
-            ->assertRedirect();
+        Livewire::actingAs($this->cliente())
+            ->test('producto-tarjeta', ['producto' => $producto])
+            ->call('agregar')
+            ->assertDispatched('carrito-actualizado');
 
         $this->assertSame([$producto->id => 1], session('carrito'));
     }
@@ -27,12 +29,12 @@ class CarritoTest extends TestCase
     public function test_no_agrega_mas_unidades_de_las_que_hay_en_almacen(): void
     {
         $producto = Producto::factory()->conStock(1)->create();
-        $cliente = $this->cliente();
 
-        $this->actingAs($cliente)->post(route('carrito.store'), ['producto' => $producto->slug]);
-        $this->actingAs($cliente)
-            ->post(route('carrito.store'), ['producto' => $producto->slug])
-            ->assertSessionHas('aviso');
+        Livewire::actingAs($this->cliente())
+            ->test('producto-tarjeta', ['producto' => $producto])
+            ->call('agregar')
+            ->call('agregar')
+            ->assertDispatched('aviso');
 
         $this->assertSame([$producto->id => 1], session('carrito'));
     }
@@ -42,12 +44,15 @@ class CarritoTest extends TestCase
         $producto = Producto::factory()->conStock(10)->create();
         $cliente = $this->cliente();
 
-        $this->actingAs($cliente)->post(route('carrito.store'), ['producto' => $producto->slug]);
-        $this->actingAs($cliente)->patch(route('carrito.update', $producto), ['delta' => 1]);
+        app(Carrito::class)->agregar($producto);
+
+        $pedido = Livewire::actingAs($cliente)
+            ->test('pedido-registrar')
+            ->call('sumar', $producto->id);
 
         $this->assertSame([$producto->id => 2], session('carrito'));
 
-        $this->actingAs($cliente)->patch(route('carrito.update', $producto), ['delta' => -1]);
+        $pedido->call('restar', $producto->id);
 
         $this->assertSame([$producto->id => 1], session('carrito'));
     }
@@ -55,10 +60,12 @@ class CarritoTest extends TestCase
     public function test_llegar_a_cero_unidades_elimina_la_linea(): void
     {
         $producto = Producto::factory()->conStock(10)->create();
-        $cliente = $this->cliente();
 
-        $this->actingAs($cliente)->post(route('carrito.store'), ['producto' => $producto->slug]);
-        $this->actingAs($cliente)->patch(route('carrito.update', $producto), ['delta' => -1]);
+        app(Carrito::class)->agregar($producto);
+
+        Livewire::actingAs($this->cliente())
+            ->test('pedido-registrar')
+            ->call('restar', $producto->id);
 
         $this->assertSame([], session('carrito'));
     }
@@ -66,14 +73,28 @@ class CarritoTest extends TestCase
     public function test_quita_un_producto_del_pedido(): void
     {
         $producto = Producto::factory()->conStock(10)->create();
-        $cliente = $this->cliente();
 
-        $this->actingAs($cliente)->post(route('carrito.store'), ['producto' => $producto->slug]);
-        $this->actingAs($cliente)
-            ->delete(route('carrito.destroy', $producto))
-            ->assertRedirect();
+        app(Carrito::class)->agregar($producto, 3);
+
+        Livewire::actingAs($this->cliente())
+            ->test('pedido-registrar')
+            ->call('quitar', $producto->id)
+            ->assertDispatched('carrito-actualizado');
 
         $this->assertSame([], session('carrito'));
+    }
+
+    public function test_el_contador_de_la_cabecera_refleja_las_unidades(): void
+    {
+        $producto = Producto::factory()->conStock(10)->create();
+
+        $contador = Livewire::actingAs($this->cliente())
+            ->test('carrito-contador')
+            ->assertSet('unidades', 0);
+
+        app(Carrito::class)->agregar($producto, 2);
+
+        $contador->dispatch('carrito-actualizado')->assertSet('unidades', 2);
     }
 
     public function test_el_total_suma_el_envio_solo_cuando_hay_productos(): void

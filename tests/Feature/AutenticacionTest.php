@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\Rol;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class AutenticacionTest extends TestCase
@@ -25,7 +26,10 @@ class AutenticacionTest extends TestCase
             'password' => 'demo1234',
         ]);
 
-        $this->post(route('login'), ['usuario' => 'cliente', 'password' => 'demo1234'])
+        Livewire::test('login')
+            ->set('usuario', 'cliente')
+            ->set('password', 'demo1234')
+            ->call('entrar')
             ->assertRedirect(route('catalogo.index'));
 
         $this->assertAuthenticatedAs($usuario);
@@ -38,7 +42,10 @@ class AutenticacionTest extends TestCase
             'password' => 'demo1234',
         ]);
 
-        $this->post(route('login'), ['usuario' => 'proveedor', 'password' => 'demo1234'])
+        Livewire::test('login')
+            ->set('usuario', 'proveedor')
+            ->set('password', 'demo1234')
+            ->call('entrar')
             ->assertRedirect(route('seguimiento.index'));
     }
 
@@ -46,18 +53,37 @@ class AutenticacionTest extends TestCase
     {
         User::factory()->create(['username' => 'cliente', 'password' => 'demo1234']);
 
-        $this->post(route('login'), ['usuario' => 'cliente', 'password' => 'incorrecta'])
-            ->assertSessionHasErrors('usuario');
+        Livewire::test('login')
+            ->set('usuario', 'cliente')
+            ->set('password', 'incorrecta')
+            ->call('entrar')
+            ->assertHasErrors('usuario');
+
+        $this->assertGuest();
+    }
+
+    public function test_una_cuenta_desactivada_no_entra(): void
+    {
+        User::factory()->create([
+            'username' => 'cliente',
+            'password' => 'demo1234',
+            'activo' => false,
+        ]);
+
+        Livewire::test('login')
+            ->set('usuario', 'cliente')
+            ->set('password', 'demo1234')
+            ->call('entrar')
+            ->assertHasErrors('usuario');
 
         $this->assertGuest();
     }
 
     public function test_el_usuario_cierra_sesion(): void
     {
-        $usuario = User::factory()->create();
-
-        $this->actingAs($usuario)
-            ->post(route('logout'))
+        Livewire::actingAs(User::factory()->create())
+            ->test('cerrar-sesion')
+            ->call('cerrar')
             ->assertRedirect(route('login'));
 
         $this->assertGuest();

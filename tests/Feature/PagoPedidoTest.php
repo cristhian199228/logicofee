@@ -9,9 +9,11 @@ use App\Enums\TipoEntrega;
 use App\Models\Pedido;
 use App\Models\Producto;
 use App\Models\User;
+use App\Support\Carrito;
 use App\Support\PasarelaPagoSimulada;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Testing\TestResponse;
+use Livewire\Features\SupportTesting\Testable;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class PagoPedidoTest extends TestCase
@@ -38,7 +40,7 @@ class PagoPedidoTest extends TestCase
             'tarjeta_titular' => 'C. Vargas',
             'tarjeta_vencimiento' => '12/30',
             'tarjeta_cvv' => '123',
-        ])->assertSessionHasNoErrors();
+        ])->assertHasNoErrors();
 
         $pedido = Pedido::firstOrFail();
 
@@ -55,7 +57,7 @@ class PagoPedidoTest extends TestCase
         $this->registrar([
             'metodo_pago' => MetodoPago::Yape->value,
             'yape_celular' => '987654321',
-        ])->assertSessionHasNoErrors();
+        ])->assertHasNoErrors();
 
         $pedido = Pedido::firstOrFail();
 
@@ -74,7 +76,7 @@ class PagoPedidoTest extends TestCase
             'tarjeta_titular' => 'C. Vargas',
             'tarjeta_vencimiento' => '12/30',
             'tarjeta_cvv' => '123',
-        ], $producto)->assertSessionHasErrors('pago');
+        ], $producto)->assertHasErrors('pago');
 
         $this->assertDatabaseCount('pedidos', 0);
         // El stock vuelve a su sitio: la transacción se revierte completa.
@@ -86,7 +88,7 @@ class PagoPedidoTest extends TestCase
         $this->registrar([
             'metodo_pago' => MetodoPago::Yape->value,
             'yape_celular' => '98765'.PasarelaPagoSimulada::TERMINACION_RECHAZADA,
-        ])->assertSessionHasErrors('pago');
+        ])->assertHasErrors('pago');
 
         $this->assertDatabaseCount('pedidos', 0);
     }
@@ -94,7 +96,7 @@ class PagoPedidoTest extends TestCase
     public function test_la_tarjeta_exige_sus_datos_y_rechaza_la_vencida(): void
     {
         $this->registrar(['metodo_pago' => MetodoPago::Tarjeta->value])
-            ->assertSessionHasErrors(['tarjeta_numero', 'tarjeta_titular', 'tarjeta_vencimiento', 'tarjeta_cvv']);
+            ->assertHasErrors(['tarjeta_numero', 'tarjeta_titular', 'tarjeta_vencimiento', 'tarjeta_cvv']);
 
         $this->registrar([
             'metodo_pago' => MetodoPago::Tarjeta->value,
@@ -102,7 +104,7 @@ class PagoPedidoTest extends TestCase
             'tarjeta_titular' => 'C. Vargas',
             'tarjeta_vencimiento' => '01/20',
             'tarjeta_cvv' => '123',
-        ])->assertSessionHasErrors('tarjeta_vencimiento');
+        ])->assertHasErrors('tarjeta_vencimiento');
 
         $this->assertDatabaseCount('pedidos', 0);
     }
@@ -110,10 +112,10 @@ class PagoPedidoTest extends TestCase
     public function test_yape_exige_un_celular_valido(): void
     {
         $this->registrar(['metodo_pago' => MetodoPago::Yape->value])
-            ->assertSessionHasErrors('yape_celular');
+            ->assertHasErrors('yape_celular');
 
         $this->registrar(['metodo_pago' => MetodoPago::Yape->value, 'yape_celular' => '12345'])
-            ->assertSessionHasErrors('yape_celular');
+            ->assertHasErrors('yape_celular');
 
         $this->assertDatabaseCount('pedidos', 0);
     }
@@ -124,8 +126,8 @@ class PagoPedidoTest extends TestCase
 
         $this->registrar([
             'tipo_entrega' => TipoEntrega::RecojoEnTienda->value,
-            'cliente_direccion' => null,
-        ], $producto)->assertSessionHasNoErrors();
+            'cliente_direccion' => '',
+        ], $producto)->assertHasNoErrors();
 
         $pedido = Pedido::firstOrFail();
 
@@ -134,10 +136,26 @@ class PagoPedidoTest extends TestCase
         $this->assertSame('20.00', $pedido->total);
     }
 
+    public function test_el_resumen_deja_de_cobrar_envio_al_elegir_recojo_en_tienda(): void
+    {
+        $producto = Producto::factory()->conStock(5)->create(['precio' => 20.00]);
+
+        app(Carrito::class)->agregar($producto);
+
+        $formulario = Livewire::actingAs($this->cliente())->test('pedido-registrar');
+
+        $this->assertSame(20.0 + (float) config('logicoffee.envio'), $formulario->instance()->total);
+
+        $formulario->set('tipo_entrega', TipoEntrega::RecojoEnTienda->value);
+
+        $this->assertSame(0.0, $formulario->instance()->envio);
+        $this->assertSame(20.0, $formulario->instance()->total);
+    }
+
     public function test_el_delivery_exige_una_direccion_de_entrega(): void
     {
-        $this->registrar(['tipo_entrega' => TipoEntrega::Delivery->value, 'cliente_direccion' => null])
-            ->assertSessionHasErrors('cliente_direccion');
+        $this->registrar(['tipo_entrega' => TipoEntrega::Delivery->value, 'cliente_direccion' => ''])
+            ->assertHasErrors('cliente_direccion');
 
         $this->assertDatabaseCount('pedidos', 0);
     }
@@ -146,7 +164,7 @@ class PagoPedidoTest extends TestCase
     {
         $producto = Producto::factory()->conStock(5)->create(['precio' => 20.00]);
 
-        $this->registrar([], $producto)->assertSessionHasNoErrors();
+        $this->registrar([], $producto)->assertHasNoErrors();
 
         $pedido = Pedido::firstOrFail();
 
@@ -158,9 +176,10 @@ class PagoPedidoTest extends TestCase
     {
         $pedido = Pedido::factory()->porCobrar()->create();
 
-        $this->actingAs(User::factory()->conRol(Rol::MarketingVentas)->create())
-            ->patch(route('pedidos.pago.update', $pedido))
-            ->assertRedirect();
+        Livewire::actingAs(User::factory()->conRol(Rol::MarketingVentas)->create())
+            ->test('pedido-historial')
+            ->call('cobrar', $pedido->id)
+            ->assertHasNoErrors();
 
         $pedido->refresh();
 
@@ -171,10 +190,11 @@ class PagoPedidoTest extends TestCase
 
     public function test_el_cliente_no_registra_cobros(): void
     {
-        $pedido = Pedido::factory()->porCobrar()->create();
+        $pedido = Pedido::factory()->porCobrar()->create(['user_id' => null]);
 
-        $this->actingAs(User::factory()->conRol(Rol::Cliente)->create())
-            ->patch(route('pedidos.pago.update', $pedido))
+        Livewire::actingAs(User::factory()->conRol(Rol::Cliente)->create())
+            ->test('pedido-historial')
+            ->call('cobrar', $pedido->id)
             ->assertForbidden();
 
         $this->assertSame(EstadoPago::Pendiente, $pedido->fresh()->estado_pago);
@@ -185,14 +205,14 @@ class PagoPedidoTest extends TestCase
         Pedido::factory()->porCobrar()->create(['codigo' => 'PED-501', 'total' => 120.00]);
         Pedido::factory()->pagadoCon(MetodoPago::Yape)->create(['codigo' => 'PED-502']);
 
-        $this->actingAs(User::factory()->conRol(Rol::Administrador)->create())
-            ->get(route('pedidos.index'))
-            ->assertOk()
+        $historial = Livewire::actingAs(User::factory()->conRol(Rol::Administrador)->create())
+            ->test('pedido-historial')
             ->assertSee('Forma de pago')
             ->assertSee('Yape')
             // El importe y la etiqueta viven en elementos distintos.
-            ->assertSeeInOrder(['$120.00', 'por cobrar'])
-            ->assertViewHas('porCobrar', 120.00);
+            ->assertSeeHtmlInOrder(['$120.00', 'por cobrar']);
+
+        $this->assertSame(120.00, $historial->instance()->porCobrar);
     }
 
     /**
@@ -201,21 +221,30 @@ class PagoPedidoTest extends TestCase
      *
      * @param  array<string, mixed>  $datos
      */
-    private function registrar(array $datos = [], ?Producto $producto = null): TestResponse
+    private function registrar(array $datos = [], ?Producto $producto = null): Testable
     {
         $producto ??= Producto::factory()->conStock(5)->create();
-        $cliente = User::factory()->conRol(Rol::Cliente)->create();
 
-        $this->actingAs($cliente)->post(route('carrito.store'), ['producto' => $producto->slug]);
+        app(Carrito::class)->agregar($producto);
 
-        return $this->actingAs($cliente)->post(route('pedidos.store'), [
-            'cliente_nombre' => 'Cafetería Andina',
-            'cliente_telefono' => '945664313',
-            'cliente_tipo' => 'Cafetería',
-            'cliente_direccion' => 'Av. Ejército 401, Yanahuara',
-            'tipo_entrega' => TipoEntrega::Delivery->value,
-            'metodo_pago' => MetodoPago::Efectivo->value,
-            ...$datos,
-        ]);
+        $formulario = Livewire::actingAs($this->cliente())
+            ->test('pedido-registrar')
+            ->set('cliente_nombre', 'Cafetería Andina')
+            ->set('cliente_telefono', '945664313')
+            ->set('cliente_tipo', 'Cafetería')
+            ->set('cliente_direccion', 'Av. Ejército 401, Yanahuara')
+            ->set('tipo_entrega', TipoEntrega::Delivery->value)
+            ->set('metodo_pago', MetodoPago::Efectivo->value);
+
+        foreach ($datos as $campo => $valor) {
+            $formulario->set($campo, $valor);
+        }
+
+        return $formulario->call('registrar');
+    }
+
+    private function cliente(): User
+    {
+        return User::factory()->conRol(Rol::Cliente)->create();
     }
 }

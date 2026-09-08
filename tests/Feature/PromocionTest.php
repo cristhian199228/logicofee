@@ -8,9 +8,12 @@ use App\Enums\TipoEntrega;
 use App\Models\Pedido;
 use App\Models\Producto;
 use App\Models\User;
+use App\Support\Carrito;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportTesting\Testable;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class PromocionTest extends TestCase
@@ -42,16 +45,21 @@ class PromocionTest extends TestCase
     public function test_el_pedido_cobra_el_precio_con_descuento(): void
     {
         $producto = Producto::factory()->conStock(20)->enPromocion(25)->create(['precio' => 20.00]);
-        $cliente = $this->cliente();
 
         $this->assertEquals(15.00, $producto->precioVigente());
 
-        $this->actingAs($cliente)->post(route('carrito.store'), ['producto' => $producto->slug]);
-        $this->actingAs($cliente)->patch(route('carrito.update', $producto), ['delta' => 1]);
+        app(Carrito::class)->agregar($producto, 2);
 
-        $this->actingAs($cliente)
-            ->post(route('pedidos.store'), $this->datosCliente())
-            ->assertSessionHasNoErrors();
+        Livewire::actingAs($this->cliente())
+            ->test('pedido-registrar')
+            ->set('cliente_nombre', 'Cafetería Andina')
+            ->set('cliente_telefono', '945664313')
+            ->set('cliente_tipo', 'Cafetería')
+            ->set('cliente_direccion', 'Av. Ejército 401, Yanahuara')
+            ->set('tipo_entrega', TipoEntrega::Delivery->value)
+            ->set('metodo_pago', MetodoPago::Efectivo->value)
+            ->call('registrar')
+            ->assertHasNoErrors();
 
         $pedido = Pedido::sole();
 
@@ -63,16 +71,15 @@ class PromocionTest extends TestCase
     {
         $producto = Producto::factory()->conStock(10)->create();
 
-        $this->actingAs($this->administrador())
-            ->patch(route('promociones.update', $producto), [
-                'destacado' => '1',
-                'promocion_titulo' => 'Semana del origen',
-                'descuento' => 20,
-                'promocion_inicia_at' => now()->toDateString(),
-                'promocion_termina_at' => now()->addWeek()->toDateString(),
-            ])
-            ->assertSessionHasNoErrors()
-            ->assertRedirect();
+        $this->editor($producto)
+            ->set('destacado', true)
+            ->set('promocion_titulo', 'Semana del origen')
+            ->set('descuento', 20)
+            ->set('promocion_inicia_at', now()->toDateString())
+            ->set('promocion_termina_at', now()->addWeek()->toDateString())
+            ->call('guardar')
+            ->assertHasNoErrors()
+            ->assertDispatched('promociones-actualizadas');
 
         $producto->refresh();
 
@@ -85,9 +92,10 @@ class PromocionTest extends TestCase
     {
         $producto = Producto::factory()->conStock(10)->enPromocion(30)->create();
 
-        $this->actingAs($this->administrador())
-            ->patch(route('promociones.update', $producto), ['descuento' => 30])
-            ->assertSessionHasNoErrors();
+        $this->editor($producto)
+            ->set('destacado', false)
+            ->call('guardar')
+            ->assertHasNoErrors();
 
         $producto->refresh();
 
@@ -100,14 +108,13 @@ class PromocionTest extends TestCase
     {
         $producto = Producto::factory()->create();
 
-        $this->actingAs($this->administrador())
-            ->patch(route('promociones.update', $producto), [
-                'destacado' => '1',
-                'descuento' => 10,
-                'promocion_inicia_at' => now()->toDateString(),
-                'promocion_termina_at' => now()->subWeek()->toDateString(),
-            ])
-            ->assertSessionHasErrors('promocion_termina_at', null, 'promocion-'.$producto->slug);
+        $this->editor($producto)
+            ->set('destacado', true)
+            ->set('descuento', 10)
+            ->set('promocion_inicia_at', now()->toDateString())
+            ->set('promocion_termina_at', now()->subWeek()->toDateString())
+            ->call('guardar')
+            ->assertHasErrors('promocion_termina_at');
 
         $this->assertFalse($producto->fresh()->destacado);
     }
@@ -120,8 +127,11 @@ class PromocionTest extends TestCase
             $usuario = User::factory()->conRol($rol)->create();
 
             $this->actingAs($usuario)->get(route('promociones.index'))->assertForbidden();
-            $this->actingAs($usuario)
-                ->patch(route('promociones.update', $producto), ['destacado' => '1'])
+
+            Livewire::actingAs($usuario)
+                ->test('promocion-editor', ['producto' => $producto])
+                ->set('destacado', true)
+                ->call('guardar')
                 ->assertForbidden();
         }
 
@@ -130,9 +140,13 @@ class PromocionTest extends TestCase
         $marketing = User::factory()->conRol(Rol::MarketingVentas)->create();
 
         $this->actingAs($marketing)->get(route('promociones.index'))->assertOk();
-        $this->actingAs($marketing)
-            ->patch(route('promociones.update', $producto), ['destacado' => '1', 'descuento' => 10])
-            ->assertRedirect();
+
+        Livewire::actingAs($marketing)
+            ->test('promocion-editor', ['producto' => $producto])
+            ->set('destacado', true)
+            ->set('descuento', 10)
+            ->call('guardar')
+            ->assertHasNoErrors();
 
         $this->assertTrue($producto->fresh()->destacado);
     }
@@ -143,15 +157,13 @@ class PromocionTest extends TestCase
 
         $producto = Producto::factory()->create(['nombre' => 'Bourbon Salvador']);
 
-        $this->actingAs($this->administrador())
-            ->patch(route('promociones.update', $producto), [
-                'destacado' => '1',
-                'promocion_titulo' => 'Semana del café de origen',
-                'descuento' => 15,
-                'banner' => UploadedFile::fake()->image('banner.jpg', 1200, 600),
-            ])
-            ->assertSessionHasNoErrors()
-            ->assertRedirect();
+        $this->editor($producto)
+            ->set('destacado', true)
+            ->set('promocion_titulo', 'Semana del café de origen')
+            ->set('descuento', 15)
+            ->set('banner', UploadedFile::fake()->image('banner.jpg', 1200, 600))
+            ->call('guardar')
+            ->assertHasNoErrors();
 
         $producto->refresh();
 
@@ -165,20 +177,13 @@ class PromocionTest extends TestCase
         Storage::fake('public');
 
         $producto = Producto::factory()->enPromocion()->create();
+        $editor = $this->editor($producto)->set('destacado', true);
 
-        $this->actingAs($this->administrador())
-            ->patch(route('promociones.update', $producto), [
-                'destacado' => '1',
-                'banner' => UploadedFile::fake()->image('primero.jpg'),
-            ]);
+        $editor->set('banner', UploadedFile::fake()->image('primero.jpg'))->call('guardar');
 
         $primero = $producto->fresh()->promocion_banner;
 
-        $this->actingAs($this->administrador())
-            ->patch(route('promociones.update', $producto), [
-                'destacado' => '1',
-                'banner' => UploadedFile::fake()->image('segundo.jpg'),
-            ]);
+        $editor->set('banner', UploadedFile::fake()->image('segundo.jpg'))->call('guardar');
 
         $segundo = $producto->fresh()->promocion_banner;
 
@@ -192,17 +197,13 @@ class PromocionTest extends TestCase
         Storage::fake('public');
 
         $producto = Producto::factory()->enPromocion()->create();
+        $editor = $this->editor($producto)->set('destacado', true);
 
-        $this->actingAs($this->administrador())
-            ->patch(route('promociones.update', $producto), [
-                'destacado' => '1',
-                'banner' => UploadedFile::fake()->image('banner.jpg'),
-            ]);
+        $editor->set('banner', UploadedFile::fake()->image('banner.jpg'))->call('guardar');
 
         $banner = $producto->fresh()->promocion_banner;
 
-        $this->actingAs($this->administrador())
-            ->patch(route('promociones.update', $producto), ['destacado' => '1', 'descuento' => 30]);
+        $editor->set('descuento', 30)->call('guardar');
 
         $this->assertSame($banner, $producto->fresh()->promocion_banner);
         Storage::disk('public')->assertExists($banner);
@@ -213,18 +214,13 @@ class PromocionTest extends TestCase
         Storage::fake('public');
 
         $producto = Producto::factory()->enPromocion()->create();
+        $editor = $this->editor($producto)->set('destacado', true);
 
-        $this->actingAs($this->administrador())
-            ->patch(route('promociones.update', $producto), [
-                'destacado' => '1',
-                'banner' => UploadedFile::fake()->image('banner.jpg'),
-            ]);
+        $editor->set('banner', UploadedFile::fake()->image('banner.jpg'))->call('guardar');
 
         $banner = $producto->fresh()->promocion_banner;
 
-        $this->actingAs($this->administrador())
-            ->patch(route('promociones.update', $producto), ['destacado' => '1', 'quitar_banner' => '1'])
-            ->assertSessionHasNoErrors();
+        $editor->set('quitar_banner', true)->call('guardar')->assertHasNoErrors();
 
         $this->assertNull($producto->fresh()->promocion_banner);
         Storage::disk('public')->assertMissing($banner);
@@ -236,12 +232,11 @@ class PromocionTest extends TestCase
 
         $producto = Producto::factory()->create();
 
-        $this->actingAs($this->administrador())
-            ->patch(route('promociones.update', $producto), [
-                'destacado' => '1',
-                'banner' => UploadedFile::fake()->create('precios.pdf', 200, 'application/pdf'),
-            ])
-            ->assertSessionHasErrors('banner', null, 'promocion-'.$producto->slug);
+        $this->editor($producto)
+            ->set('destacado', true)
+            ->set('banner', UploadedFile::fake()->create('precios.pdf', 200, 'application/pdf'))
+            ->call('guardar')
+            ->assertHasErrors('banner');
 
         $this->assertNull($producto->fresh()->promocion_banner);
     }
@@ -252,13 +247,12 @@ class PromocionTest extends TestCase
 
         $producto = Producto::factory()->enPromocion()->create(['nombre' => 'Geisha Blend']);
 
-        $this->actingAs($this->administrador())
-            ->patch(route('promociones.update', $producto), [
-                'destacado' => '1',
-                'promocion_titulo' => 'Semana del café de origen',
-                'descuento' => 20,
-                'banner' => UploadedFile::fake()->image('banner.jpg'),
-            ]);
+        $this->editor($producto)
+            ->set('destacado', true)
+            ->set('promocion_titulo', 'Semana del café de origen')
+            ->set('descuento', 20)
+            ->set('banner', UploadedFile::fake()->image('banner.jpg'))
+            ->call('guardar');
 
         $this->actingAs($this->cliente())
             ->get(route('catalogo.index'))
@@ -267,19 +261,10 @@ class PromocionTest extends TestCase
             ->assertSee(Storage::disk('public')->url($producto->fresh()->promocion_banner));
     }
 
-    /**
-     * @return array<string, string>
-     */
-    private function datosCliente(): array
+    private function editor(Producto $producto): Testable
     {
-        return [
-            'cliente_nombre' => 'Cafetería Andina',
-            'cliente_telefono' => '945664313',
-            'cliente_tipo' => 'Cafetería',
-            'cliente_direccion' => 'Av. Ejército 401, Yanahuara',
-            'tipo_entrega' => TipoEntrega::Delivery->value,
-            'metodo_pago' => MetodoPago::Efectivo->value,
-        ];
+        return Livewire::actingAs($this->administrador())
+            ->test('promocion-editor', ['producto' => $producto]);
     }
 
     private function cliente(): User

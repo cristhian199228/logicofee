@@ -8,6 +8,7 @@ use App\Models\PedidoLinea;
 use App\Models\Producto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class PanelVentasTest extends TestCase
@@ -19,14 +20,19 @@ class PanelVentasTest extends TestCase
         Pedido::factory()->count(2)->create(['cliente_nombre' => 'Cafetería Andina', 'total' => 200.00]);
         Pedido::factory()->create(['cliente_nombre' => 'Bodega Los Andes', 'total' => 150.00]);
 
-        $this->actingAs($this->marketing())
-            ->get(route('ventas.index'))
-            ->assertOk()
+        $comercial = Livewire::actingAs($this->marketing())
+            ->test('ventas')
             ->assertSee('Cafetería Andina')
-            ->assertViewHas('clientesAtendidos', 2)
-            ->assertViewHas('mejoresClientes', fn ($clientes) => $clientes->first()['nombre'] === 'Cafetería Andina'
-                && $clientes->first()['pedidos'] === 2
-                && $clientes->first()['total'] === 400.00);
+            ->instance()
+            ->comercial;
+
+        $this->assertSame(2, $comercial->clientesAtendidos());
+
+        $mejor = $comercial->mejoresClientes()->first();
+
+        $this->assertSame('Cafetería Andina', $mejor['nombre']);
+        $this->assertSame(2, $mejor['pedidos']);
+        $this->assertSame(400.00, $mejor['total']);
     }
 
     public function test_el_panel_reparte_las_ventas_por_tipo_de_cliente(): void
@@ -34,11 +40,14 @@ class PanelVentasTest extends TestCase
         Pedido::factory()->create(['cliente_tipo' => 'Cafetería', 'total' => 300.00]);
         Pedido::factory()->create(['cliente_tipo' => 'Bodega', 'total' => 100.00]);
 
-        $this->actingAs($this->marketing())
-            ->get(route('ventas.index'))
-            ->assertOk()
-            ->assertViewHas('porTipoDeCliente', fn ($tipos) => $tipos->first()['tipo'] === 'Cafetería'
-                && $tipos->first()['total'] === 300.00);
+        $tipos = Livewire::actingAs($this->marketing())
+            ->test('ventas')
+            ->instance()
+            ->comercial
+            ->ventasPorTipoDeCliente();
+
+        $this->assertSame('Cafetería', $tipos->first()['tipo']);
+        $this->assertSame(300.00, $tipos->first()['total']);
     }
 
     public function test_el_panel_mide_el_descuento_entregado_en_promociones(): void
@@ -48,11 +57,14 @@ class PanelVentasTest extends TestCase
         // La línea guarda el precio cobrado: 5 uds con $4 menos que el de lista.
         PedidoLinea::factory()->deProducto($producto, 5)->create(['precio' => 16.00]);
 
-        $this->actingAs($this->marketing())
-            ->get(route('ventas.index'))
-            ->assertOk()
-            ->assertViewHas('descuento', fn (array $descuento) => $descuento['descuento'] === 20.00
-                && $descuento['unidades'] === 5);
+        $descuento = Livewire::actingAs($this->marketing())
+            ->test('ventas')
+            ->instance()
+            ->comercial
+            ->descuentoEntregado();
+
+        $this->assertSame(20.00, $descuento['descuento']);
+        $this->assertSame(5, $descuento['unidades']);
     }
 
     public function test_el_panel_lista_las_promociones_vigentes_y_el_catalogo_sin_ventas(): void
@@ -62,14 +74,18 @@ class PanelVentasTest extends TestCase
 
         PedidoLinea::factory()->deProducto($enPromocion, 8)->create();
 
-        $this->actingAs($this->marketing())
-            ->get(route('ventas.index'))
-            ->assertOk()
+        $comercial = Livewire::actingAs($this->marketing())
+            ->test('ventas')
             ->assertSee('Bourbon Salvador')
             ->assertSee('Mocha Espresso')
-            ->assertViewHas('promociones', fn ($promociones) => $promociones->count() === 1
-                && (int) $promociones->first()->unidades_vendidas === 8)
-            ->assertViewHas('sinVentas', fn ($sinVentas) => $sinVentas->pluck('nombre')->all() === ['Mocha Espresso']);
+            ->instance()
+            ->comercial;
+
+        $promociones = $comercial->promocionesVigentes();
+
+        $this->assertCount(1, $promociones);
+        $this->assertSame(8, (int) $promociones->first()->unidades_vendidas);
+        $this->assertSame(['Mocha Espresso'], $comercial->productosSinVentas()->pluck('nombre')->all());
     }
 
     public function test_marketing_ve_el_acceso_a_promociones_y_direccion_no(): void

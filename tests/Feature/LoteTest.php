@@ -7,6 +7,7 @@ use App\Models\Lote;
 use App\Models\Producto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class LoteTest extends TestCase
@@ -29,16 +30,15 @@ class LoteTest extends TestCase
     {
         $producto = Producto::factory()->conStock(10)->create();
 
-        $this->actingAs($this->proveedor())
-            ->post(route('lotes.store'), [
-                'producto' => $producto->slug,
-                'codigo' => 'L-2620',
-                'cantidad' => 75,
-                'tostado_at' => now()->subWeek()->toDateString(),
-                'vence_at' => now()->addYear()->toDateString(),
-            ])
-            ->assertSessionHasNoErrors()
-            ->assertRedirect();
+        Livewire::actingAs($this->proveedor())
+            ->test('lotes')
+            ->set('producto', $producto->slug)
+            ->set('codigo', 'L-2620')
+            ->set('cantidad', 75)
+            ->set('tostado_at', now()->subWeek()->toDateString())
+            ->set('vence_at', now()->addYear()->toDateString())
+            ->call('registrar')
+            ->assertHasNoErrors();
 
         $this->assertDatabaseHas('lotes', ['codigo' => 'L-2620', 'cantidad_disponible' => 75]);
         $this->assertSame(85, $producto->fresh()->stock);
@@ -49,15 +49,15 @@ class LoteTest extends TestCase
         $producto = Producto::factory()->create();
         Lote::factory()->for($producto)->create(['codigo' => 'L-2601']);
 
-        $this->actingAs($this->proveedor())
-            ->post(route('lotes.store'), [
-                'producto' => $producto->slug,
-                'codigo' => 'L-2601',
-                'cantidad' => 20,
-                'tostado_at' => now()->subWeek()->toDateString(),
-                'vence_at' => now()->addYear()->toDateString(),
-            ])
-            ->assertSessionHasErrors('codigo');
+        Livewire::actingAs($this->proveedor())
+            ->test('lotes')
+            ->set('producto', $producto->slug)
+            ->set('codigo', 'L-2601')
+            ->set('cantidad', 20)
+            ->set('tostado_at', now()->subWeek()->toDateString())
+            ->set('vence_at', now()->addYear()->toDateString())
+            ->call('registrar')
+            ->assertHasErrors('codigo');
 
         $this->assertDatabaseCount('lotes', 1);
     }
@@ -66,15 +66,15 @@ class LoteTest extends TestCase
     {
         $producto = Producto::factory()->create();
 
-        $this->actingAs($this->proveedor())
-            ->post(route('lotes.store'), [
-                'producto' => $producto->slug,
-                'codigo' => 'L-2621',
-                'cantidad' => 20,
-                'tostado_at' => now()->toDateString(),
-                'vence_at' => now()->subDay()->toDateString(),
-            ])
-            ->assertSessionHasErrors('vence_at');
+        Livewire::actingAs($this->proveedor())
+            ->test('lotes')
+            ->set('producto', $producto->slug)
+            ->set('codigo', 'L-2621')
+            ->set('cantidad', 20)
+            ->set('tostado_at', now()->toDateString())
+            ->set('vence_at', now()->subDay()->toDateString())
+            ->call('registrar')
+            ->assertHasErrors('vence_at');
     }
 
     public function test_el_pedido_consume_primero_el_lote_que_vence_antes(): void
@@ -109,14 +109,14 @@ class LoteTest extends TestCase
     {
         $producto = Producto::factory()->create();
 
-        $this->actingAs(User::factory()->conRol(Rol::Cliente)->create())
-            ->post(route('lotes.store'), [
-                'producto' => $producto->slug,
-                'codigo' => 'L-2622',
-                'cantidad' => 10,
-                'tostado_at' => now()->subWeek()->toDateString(),
-                'vence_at' => now()->addYear()->toDateString(),
-            ])
+        Livewire::actingAs(User::factory()->conRol(Rol::Cliente)->create())
+            ->test('lotes')
+            ->set('producto', $producto->slug)
+            ->set('codigo', 'L-2622')
+            ->set('cantidad', 10)
+            ->set('tostado_at', now()->subWeek()->toDateString())
+            ->set('vence_at', now()->addYear()->toDateString())
+            ->call('registrar')
             ->assertForbidden();
 
         $this->assertDatabaseCount('lotes', 0);

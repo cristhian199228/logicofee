@@ -1,0 +1,180 @@
+<?php
+
+use Illuminate\Auth\Events\Lockout;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Validate;
+use Livewire\Component;
+
+new #[Layout('components.layouts.invitado', ['titulo' => 'Iniciar sesión'])] class extends Component
+{
+    #[Validate('required|string', message: 'Completa el usuario y la contraseña.')]
+    public string $usuario = '';
+
+    #[Validate('required|string', message: 'Completa el usuario y la contraseña.')]
+    public string $password = '';
+
+    public bool $recordarme = false;
+
+    /**
+     * Autentica las credenciales del formulario y entra por la primera
+     * sección del menú del rol.
+     *
+     * @throws ValidationException
+     */
+    public function entrar(): void
+    {
+        $this->validate();
+
+        $this->asegurarQueNoEstaLimitado();
+
+        $credenciales = [
+            'username' => Str::lower(trim($this->usuario)),
+            'password' => $this->password,
+        ];
+
+        if (! Auth::attempt($credenciales, $this->recordarme)) {
+            RateLimiter::hit($this->claveLimite());
+
+            throw ValidationException::withMessages([
+                'usuario' => 'Usuario o contraseña incorrectos.',
+            ]);
+        }
+
+        RateLimiter::clear($this->claveLimite());
+
+        $this->asegurarQueLaCuentaEstaActiva();
+
+        session()->regenerate();
+
+        $this->redirectIntended(
+            route(Auth::user()->seccionInicial()->ruta()),
+            navigate: true,
+        );
+    }
+
+    /**
+     * Una cuenta desactivada por el administrador no entra al sistema (HU09).
+     *
+     * @throws ValidationException
+     */
+    private function asegurarQueLaCuentaEstaActiva(): void
+    {
+        if (Auth::user()->activo) {
+            return;
+        }
+
+        Auth::guard('web')->logout();
+
+        throw ValidationException::withMessages([
+            'usuario' => 'Tu cuenta está desactivada. Comunícate con el administrador.',
+        ]);
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function asegurarQueNoEstaLimitado(): void
+    {
+        if (! RateLimiter::tooManyAttempts($this->claveLimite(), 5)) {
+            return;
+        }
+
+        event(new Lockout(request()));
+
+        throw ValidationException::withMessages([
+            'usuario' => trans('auth.throttle', [
+                'seconds' => $segundos = RateLimiter::availableIn($this->claveLimite()),
+                'minutes' => ceil($segundos / 60),
+            ]),
+        ]);
+    }
+
+    private function claveLimite(): string
+    {
+        return Str::transliterate(Str::lower($this->usuario).'|'.request()->ip());
+    }
+};
+?>
+
+<main class="flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-12">
+
+    <section class="relative w-full max-w-md rounded-3xl border-2 border-coffee-300 bg-coffee-50 p-8 shadow-xl shadow-coffee-800/10 sm:p-10"
+        aria-labelledby="login-titulo">
+
+        <div class="mx-auto grid size-16 place-items-center rounded-full bg-coffee-200">
+            <svg class="size-8 text-coffee-700" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 12a5 5 0 100-10 5 5 0 000 10Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z" />
+            </svg>
+        </div>
+
+        <h1 id="login-titulo" class="mt-5 text-center font-display text-3xl font-bold text-coffee-800">
+            Iniciar Sesión
+        </h1>
+        <p class="mx-auto mt-2 max-w-xs text-center text-sm leading-relaxed text-coffee-700/70">
+            Ingresa tus credenciales para acceder a tu rol en LogiCoffee.
+        </p>
+
+        <form wire:submit="entrar" class="mt-8 space-y-5">
+            <div>
+                <label for="usuario" class="block text-sm font-semibold text-coffee-800">
+                    Usuario <span class="text-ladrillo-500" aria-hidden="true">*</span>
+                </label>
+                <input type="text" id="usuario" wire:model="usuario" autofocus
+                    autocomplete="username" placeholder="Ej. admin"
+                    @class([
+                        'mt-2 w-full rounded-xl border bg-white px-4 py-3 text-coffee-900 placeholder:text-coffee-700/40 transition focus:outline-none focus:ring-4',
+                        'border-ladrillo-500 focus:border-ladrillo-500 focus:ring-ladrillo-500/15' => $errors->any(),
+                        'border-coffee-300 focus:border-coffee-500 focus:ring-coffee-500/15' => ! $errors->any(),
+                    ]) />
+            </div>
+
+            <div>
+                <label for="password" class="block text-sm font-semibold text-coffee-800">
+                    Contraseña <span class="text-ladrillo-500" aria-hidden="true">*</span>
+                </label>
+                <input type="password" id="password" wire:model="password" autocomplete="current-password" placeholder="••••••••"
+                    @class([
+                        'mt-2 w-full rounded-xl border bg-white px-4 py-3 text-coffee-900 placeholder:text-coffee-700/40 transition focus:outline-none focus:ring-4',
+                        'border-ladrillo-500 focus:border-ladrillo-500 focus:ring-ladrillo-500/15' => $errors->any(),
+                        'border-coffee-300 focus:border-coffee-500 focus:ring-coffee-500/15' => ! $errors->any(),
+                    ]) />
+            </div>
+
+            @if ($errors->any())
+                <p class="flex items-center gap-2 rounded-xl border border-ladrillo-500/30 bg-ladrillo-500/10 px-4 py-3 text-sm font-medium text-ladrillo-500" role="alert">
+                    <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16.5v.01" />
+                    </svg>
+                    <span>{{ $errors->first() }}</span>
+                </p>
+            @endif
+
+            <button type="submit" wire:loading.attr="disabled"
+                class="mt-2 w-full rounded-xl bg-coffee-500 py-3.5 font-semibold text-white shadow-lg shadow-coffee-500/25 transition hover:bg-coffee-600 focus:outline-none focus-visible:ring-4 focus-visible:ring-coffee-500/30 active:scale-[.99] disabled:opacity-70">
+                <span wire:loading.remove wire:target="entrar">Entrar</span>
+                <span wire:loading wire:target="entrar">Entrando…</span>
+            </button>
+        </form>
+    </section>
+
+    {{-- Una cuenta por rol; salen de config/logicoffee.php, igual que el seeder. --}}
+    <aside class="w-full max-w-md rounded-2xl border border-coffee-300 bg-coffee-50/60 p-4">
+        <p class="text-xs font-semibold uppercase tracking-wide text-coffee-700/70">Credenciales de demostración</p>
+        <p class="mt-1 text-xs text-coffee-700/60">
+            Todas las cuentas usan la contraseña
+            <code class="font-semibold text-coffee-800">{{ config('logicoffee.password_demo') }}</code>.
+        </p>
+        <ul class="mt-3 space-y-1 text-sm text-coffee-800">
+            @foreach (config('logicoffee.cuentas_demo') as $cuenta)
+                <li class="flex justify-between gap-3">
+                    <code class="font-semibold">{{ $cuenta['username'] }}</code>
+                    <span class="text-coffee-700/70">{{ $cuenta['rol'] }}</span>
+                </li>
+            @endforeach
+        </ul>
+    </aside>
+</main>

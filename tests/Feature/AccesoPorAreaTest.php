@@ -9,6 +9,7 @@ use App\Models\Pedido;
 use App\Models\Producto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
@@ -66,12 +67,14 @@ class AccesoPorAreaTest extends TestCase
         $lote = Lote::factory()->conCantidad(10)->create();
         $logistica = User::factory()->conRol(Rol::LogisticaAlmacen)->create();
 
-        $this->actingAs($logistica)
-            ->post(route('pedidos.avance.store', $pedido))
-            ->assertRedirect();
+        Livewire::actingAs($logistica)
+            ->test('seguimiento-tarjeta', ['pedido' => $pedido])
+            ->call('avanzar')
+            ->assertHasNoErrors();
 
-        $this->actingAs($logistica)
-            ->post(route('calidad.store', $lote), ['resultado' => 'Aprobado'])
+        Livewire::actingAs($logistica)
+            ->test('calidad-tarjeta', ['lote' => $lote])
+            ->call('evaluar', 'Aprobado')
             ->assertForbidden();
     }
 
@@ -81,12 +84,14 @@ class AccesoPorAreaTest extends TestCase
         $lote = Lote::factory()->conCantidad(10)->create();
         $produccion = User::factory()->conRol(Rol::ProduccionOperaciones)->create();
 
-        $this->actingAs($produccion)
-            ->post(route('calidad.store', $lote), ['resultado' => 'Aprobado'])
-            ->assertRedirect();
+        Livewire::actingAs($produccion)
+            ->test('calidad-tarjeta', ['lote' => $lote])
+            ->call('evaluar', 'Aprobado')
+            ->assertHasNoErrors();
 
-        $this->actingAs($produccion)
-            ->post(route('pedidos.avance.store', $pedido))
+        Livewire::actingAs($produccion)
+            ->test('seguimiento-tarjeta', ['pedido' => $pedido])
+            ->call('avanzar')
             ->assertForbidden();
     }
 
@@ -95,34 +100,54 @@ class AccesoPorAreaTest extends TestCase
         $producto = Producto::factory()->create();
         $marketing = User::factory()->conRol(Rol::MarketingVentas)->create();
 
-        $this->actingAs($marketing)
-            ->post(route('lotes.store'), [
-                'producto' => $producto->slug,
-                'codigo' => 'L-3001',
-                'cantidad' => 10,
-                'tostado_at' => now()->subWeek()->toDateString(),
-                'vence_at' => now()->addYear()->toDateString(),
-            ])
+        Livewire::actingAs($marketing)
+            ->test('promocion-editor', ['producto' => $producto])
+            ->set('destacado', true)
+            ->set('descuento', 15)
+            ->call('guardar')
+            ->assertHasNoErrors();
+
+        $this->assertTrue($producto->fresh()->destacado);
+
+        Livewire::actingAs($marketing)
+            ->test('lotes')
+            ->set('producto', $producto->slug)
+            ->set('codigo', 'L-3001')
+            ->set('cantidad', 10)
+            ->call('registrar')
             ->assertForbidden();
 
         $this->assertDatabaseCount('lotes', 0);
-
-        $this->actingAs($marketing)
-            ->patch(route('promociones.update', $producto), ['destacado' => '1', 'descuento' => 15])
-            ->assertRedirect();
     }
 
     public function test_direccion_general_solo_consulta(): void
     {
+        $direccion = User::factory()->conRol(Rol::DireccionGeneral)->create();
+
+        $this->actingAs($direccion)->get(route('usuarios.index'))->assertForbidden();
+        $this->actingAs($direccion)->get(route('promociones.index'))->assertForbidden();
+        $this->actingAs($direccion)->get(route('reportes.index'))->assertOk();
+    }
+
+    public function test_direccion_general_no_despacha_ni_controla_la_calidad(): void
+    {
         $pedido = Pedido::factory()->create();
+        $direccion = User::factory()->conRol(Rol::DireccionGeneral)->create();
+
+        Livewire::actingAs($direccion)
+            ->test('seguimiento-tarjeta', ['pedido' => $pedido])
+            ->call('avanzar')
+            ->assertForbidden();
+    }
+
+    public function test_direccion_general_no_registra_controles_de_calidad(): void
+    {
         $lote = Lote::factory()->conCantidad(10)->create();
         $direccion = User::factory()->conRol(Rol::DireccionGeneral)->create();
 
-        $this->actingAs($direccion)->post(route('pedidos.avance.store', $pedido))->assertForbidden();
-        $this->actingAs($direccion)->post(route('calidad.store', $lote), ['resultado' => 'Aprobado'])->assertForbidden();
-        $this->actingAs($direccion)->get(route('usuarios.index'))->assertForbidden();
-        $this->actingAs($direccion)->get(route('promociones.index'))->assertForbidden();
-
-        $this->actingAs($direccion)->get(route('reportes.index'))->assertOk();
+        Livewire::actingAs($direccion)
+            ->test('calidad-tarjeta', ['lote' => $lote])
+            ->call('evaluar', 'Aprobado')
+            ->assertForbidden();
     }
 }

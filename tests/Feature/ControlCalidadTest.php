@@ -9,6 +9,7 @@ use App\Models\Producto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class ControlCalidadTest extends TestCase
@@ -33,13 +34,12 @@ class ControlCalidadTest extends TestCase
         $lote = Lote::factory()->conCantidad(30)->create();
         $responsable = $this->proveedor();
 
-        $this->actingAs($responsable)
-            ->post(route('calidad.store', $lote), [
-                'resultado' => ResultadoCalidad::Aprobado->value,
-                'calidad_nota' => 'Taza limpia, humedad 11%.',
-            ])
-            ->assertSessionHasNoErrors()
-            ->assertRedirect();
+        Livewire::actingAs($responsable)
+            ->test('calidad-tarjeta', ['lote' => $lote])
+            ->set('calidad_nota', 'Taza limpia, humedad 11%.')
+            ->call('evaluar', ResultadoCalidad::Aprobado->value)
+            ->assertHasNoErrors()
+            ->assertDispatched('calidad-registrada');
 
         $lote->refresh();
 
@@ -58,12 +58,11 @@ class ControlCalidadTest extends TestCase
 
         $this->assertSame(50, $producto->fresh()->stock);
 
-        $this->actingAs($this->proveedor())
-            ->post(route('calidad.store', $sospechoso), [
-                'resultado' => ResultadoCalidad::Rechazado->value,
-                'calidad_nota' => 'Humedad fuera de rango.',
-            ])
-            ->assertSessionHasNoErrors();
+        Livewire::actingAs($this->proveedor())
+            ->test('calidad-tarjeta', ['lote' => $sospechoso])
+            ->set('calidad_nota', 'Humedad fuera de rango.')
+            ->call('evaluar', ResultadoCalidad::Rechazado->value)
+            ->assertHasNoErrors();
 
         $this->assertTrue($sospechoso->fresh()->bloqueado());
         $this->assertSame(20, $producto->fresh()->stock);
@@ -100,9 +99,10 @@ class ControlCalidadTest extends TestCase
     {
         $lote = Lote::factory()->conCantidad(10)->create();
 
-        $this->actingAs($this->proveedor())
-            ->post(route('calidad.store', $lote), ['resultado' => ResultadoCalidad::Pendiente->value])
-            ->assertSessionHasErrors('resultado', null, 'calidad-'.$lote->id);
+        Livewire::actingAs($this->proveedor())
+            ->test('calidad-tarjeta', ['lote' => $lote])
+            ->call('evaluar', ResultadoCalidad::Pendiente->value)
+            ->assertStatus(422);
 
         $this->assertSame(ResultadoCalidad::Pendiente, $lote->fresh()->calidad);
     }
@@ -114,8 +114,9 @@ class ControlCalidadTest extends TestCase
 
         $this->actingAs($cliente)->get(route('calidad.index'))->assertForbidden();
 
-        $this->actingAs($cliente)
-            ->post(route('calidad.store', $lote), ['resultado' => ResultadoCalidad::Rechazado->value])
+        Livewire::actingAs($cliente)
+            ->test('calidad-tarjeta', ['lote' => $lote])
+            ->call('evaluar', ResultadoCalidad::Rechazado->value)
             ->assertForbidden();
 
         $this->assertSame(ResultadoCalidad::Pendiente, $lote->fresh()->calidad);

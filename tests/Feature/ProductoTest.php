@@ -11,6 +11,8 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportTesting\Testable;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class ProductoTest extends TestCase
@@ -29,23 +31,20 @@ class ProductoTest extends TestCase
         Producto::factory()->conStock(40)->create(['nombre' => 'Bourbon Salvador']);
         Producto::factory()->agotado()->create(['nombre' => 'Mocha Espresso']);
 
-        $this->actingAs($this->marketing())
-            ->get(route('productos.index'))
-            ->assertOk()
+        $pantalla = Livewire::actingAs($this->marketing())
+            ->test('productos')
             ->assertSee('Bourbon Salvador')
-            ->assertSee('Mocha Espresso')
-            ->assertViewHas('bajoStock', 1);
+            ->assertSee('Mocha Espresso');
+
+        $this->assertSame(1, $pantalla->instance()->bajoStock);
     }
 
     public function test_marketing_agrega_un_cafe_al_catalogo(): void
     {
-        $this->actingAs($this->marketing())
-            ->post(route('productos.store'), [
-                ...$this->datosProducto(),
-                'foto' => UploadedFile::fake()->image('geisha.jpg', 800, 600),
-            ])
-            ->assertSessionHasNoErrors()
-            ->assertRedirect();
+        $this->altaDeProducto()
+            ->set('foto', UploadedFile::fake()->image('geisha.jpg', 800, 600))
+            ->call('agregar')
+            ->assertHasNoErrors();
 
         $producto = Producto::firstWhere('nombre', 'Geisha Blend Premium');
 
@@ -59,11 +58,11 @@ class ProductoTest extends TestCase
 
     public function test_dos_cafes_con_el_mismo_nombre_no_comparten_direccion(): void
     {
-        foreach (['500 g', '500 g'] as $presentacion) {
-            $this->actingAs($this->marketing())
-                ->post(route('productos.store'), [...$this->datosProducto(), 'presentacion' => $presentacion])
-                ->assertSessionHasNoErrors();
-        }
+        $alta = $this->altaDeProducto();
+
+        $alta->call('agregar')->assertHasNoErrors();
+
+        $this->altaDeProducto()->call('agregar')->assertHasNoErrors();
 
         $this->assertSame(
             ['geisha-blend-premium-500-g', 'geisha-blend-premium-500-g-2'],
@@ -73,17 +72,17 @@ class ProductoTest extends TestCase
 
     public function test_el_alta_valida_los_datos_del_cafe(): void
     {
-        $this->actingAs($this->marketing())
-            ->post(route('productos.store'), [
-                'nombre' => '',
-                'presentacion' => '250 g',
-                'categoria' => 'Instantáneo',
-                'descripcion' => 'Notas de cacao.',
-                'precio' => 0,
-                'stock_minimo' => -1,
-                'acento' => 'verde',
-            ])
-            ->assertSessionHasErrors(['nombre', 'categoria', 'precio', 'stock_minimo', 'acento']);
+        Livewire::actingAs($this->marketing())
+            ->test('productos')
+            ->set('nombre', '')
+            ->set('presentacion', '250 g')
+            ->set('categoria', 'Instantáneo')
+            ->set('descripcion', 'Notas de cacao.')
+            ->set('precio', 0)
+            ->set('stock_minimo', -1)
+            ->set('acento', 'verde')
+            ->call('agregar')
+            ->assertHasErrors(['nombre', 'categoria', 'precio', 'stock_minimo', 'acento']);
 
         $this->assertDatabaseCount('productos', 0);
     }
@@ -98,15 +97,13 @@ class ProductoTest extends TestCase
 
         $direccion = $producto->slug;
 
-        $this->actingAs($this->marketing())
-            ->patch(route('productos.update', $producto), [
-                ...$this->datosProducto(),
-                'nombre' => 'Bourbon Salvador Reserva',
-                'precio' => 21.50,
-                'stock_minimo' => 25,
-            ])
-            ->assertSessionHasNoErrors()
-            ->assertRedirect();
+        Livewire::actingAs($this->marketing())
+            ->test('producto-editor', ['producto' => $producto])
+            ->set('nombre', 'Bourbon Salvador Reserva')
+            ->set('precio', 21.50)
+            ->set('stock_minimo', 25)
+            ->call('guardar')
+            ->assertHasNoErrors();
 
         $producto->refresh();
 
@@ -123,19 +120,13 @@ class ProductoTest extends TestCase
     {
         $producto = Producto::factory()->create();
 
-        $this->actingAs($this->marketing())
-            ->patch(route('productos.update', $producto), [
-                ...$this->datosProducto(),
-                'foto' => UploadedFile::fake()->image('primera.jpg'),
-            ]);
+        $editor = Livewire::actingAs($this->marketing())->test('producto-editor', ['producto' => $producto]);
+
+        $editor->set('foto', UploadedFile::fake()->image('primera.jpg'))->call('guardar');
 
         $primera = $producto->fresh()->imagen;
 
-        $this->actingAs($this->marketing())
-            ->patch(route('productos.update', $producto), [
-                ...$this->datosProducto(),
-                'foto' => UploadedFile::fake()->image('segunda.jpg'),
-            ]);
+        $editor->set('foto', UploadedFile::fake()->image('segunda.jpg'))->call('guardar');
 
         $segunda = $producto->fresh()->imagen;
 
@@ -148,16 +139,13 @@ class ProductoTest extends TestCase
     {
         $producto = Producto::factory()->create();
 
-        $this->actingAs($this->marketing())
-            ->patch(route('productos.update', $producto), [
-                ...$this->datosProducto(),
-                'foto' => UploadedFile::fake()->image('unica.jpg'),
-            ]);
+        $editor = Livewire::actingAs($this->marketing())->test('producto-editor', ['producto' => $producto]);
+
+        $editor->set('foto', UploadedFile::fake()->image('unica.jpg'))->call('guardar');
 
         $imagen = $producto->fresh()->imagen;
 
-        $this->actingAs($this->marketing())
-            ->patch(route('productos.update', $producto), $this->datosProducto());
+        $editor->set('nombre', 'Bourbon Salvador Reserva')->call('guardar');
 
         $this->assertSame($imagen, $producto->fresh()->imagen);
         Storage::disk('public')->assertExists($imagen);
@@ -168,10 +156,10 @@ class ProductoTest extends TestCase
         $producto = Producto::factory()->create(['nombre' => 'Mocha Espresso']);
         PedidoLinea::factory()->deProducto($producto, 3)->create();
 
-        $this->actingAs($this->marketing())
-            ->delete(route('productos.destroy', $producto))
-            ->assertSessionHasNoErrors()
-            ->assertRedirect();
+        Livewire::actingAs($this->marketing())
+            ->test('productos')
+            ->call('retirar', $producto->id)
+            ->assertHasNoErrors();
 
         $this->assertDatabaseMissing('productos', ['id' => $producto->id]);
         // El historial del pedido conserva su copia de los datos.
@@ -182,9 +170,11 @@ class ProductoTest extends TestCase
     {
         $producto = Producto::factory()->conStock(15)->create();
 
-        $this->actingAs($this->marketing())
-            ->delete(route('productos.destroy', $producto))
-            ->assertSessionHasErrors('eliminar', null, 'producto-'.$producto->slug);
+        Livewire::actingAs($this->marketing())
+            ->test('productos')
+            ->call('retirar', $producto->id)
+            ->assertSet('productoConError', $producto->id)
+            ->assertSee('todavía tiene 15 uds en almacén');
 
         $this->assertDatabaseHas('productos', ['id' => $producto->id]);
         $this->assertSame(1, Lote::query()->count());
@@ -204,28 +194,32 @@ class ProductoTest extends TestCase
             $usuario = User::factory()->conRol($rol)->create();
 
             $this->actingAs($usuario)->get(route('productos.index'))->assertForbidden();
-            $this->actingAs($usuario)->post(route('productos.store'), $this->datosProducto())->assertForbidden();
-            $this->actingAs($usuario)->patch(route('productos.update', $producto), $this->datosProducto())->assertForbidden();
-            $this->actingAs($usuario)->delete(route('productos.destroy', $producto))->assertForbidden();
+
+            Livewire::actingAs($usuario)->test('productos')->call('agregar')->assertForbidden();
+            Livewire::actingAs($usuario)->test('productos')->call('retirar', $producto->id)->assertForbidden();
+            Livewire::actingAs($usuario)
+                ->test('producto-editor', ['producto' => $producto])
+                ->call('guardar')
+                ->assertForbidden();
         }
 
         $this->assertDatabaseCount('productos', 1);
     }
 
     /**
-     * @return array<string, mixed>
+     * Alta de producto con los datos del formulario ya completados.
      */
-    private function datosProducto(): array
+    private function altaDeProducto(): Testable
     {
-        return [
-            'nombre' => 'Geisha Blend Premium',
-            'presentacion' => '500 g',
-            'categoria' => CategoriaProducto::Blends->value,
-            'descripcion' => 'Notas florales con final a panela.',
-            'precio' => 24.90,
-            'stock_minimo' => 12,
-            'acento' => '#4a7c3f',
-        ];
+        return Livewire::actingAs($this->marketing())
+            ->test('productos')
+            ->set('nombre', 'Geisha Blend Premium')
+            ->set('presentacion', '500 g')
+            ->set('categoria', CategoriaProducto::Blends->value)
+            ->set('descripcion', 'Notas florales con final a panela.')
+            ->set('precio', 24.90)
+            ->set('stock_minimo', 12)
+            ->set('acento', '#4a7c3f');
     }
 
     private function marketing(): User

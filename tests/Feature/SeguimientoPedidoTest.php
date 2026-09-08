@@ -9,6 +9,7 @@ use App\Enums\Rol;
 use App\Models\Pedido;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class SeguimientoPedidoTest extends TestCase
@@ -36,9 +37,10 @@ class SeguimientoPedidoTest extends TestCase
     {
         $pedido = Pedido::factory()->create();
 
-        $this->actingAs($this->proveedor())
-            ->post(route('pedidos.avance.store', $pedido))
-            ->assertRedirect();
+        Livewire::actingAs($this->proveedor())
+            ->test('seguimiento-tarjeta', ['pedido' => $pedido])
+            ->call('avanzar')
+            ->assertDispatched('pedido-avanzado');
 
         $this->assertSame(EstadoPedido::Preparacion, $pedido->fresh()->estado);
         $this->assertNull($pedido->fresh()->entregado_at);
@@ -48,7 +50,9 @@ class SeguimientoPedidoTest extends TestCase
     {
         $pedido = Pedido::factory()->enEstado(EstadoPedido::Preparacion)->create();
 
-        $this->actingAs($this->proveedor())->post(route('pedidos.avance.store', $pedido));
+        Livewire::actingAs($this->proveedor())
+            ->test('seguimiento-tarjeta', ['pedido' => $pedido])
+            ->call('avanzar');
 
         $pedido->refresh();
 
@@ -60,9 +64,10 @@ class SeguimientoPedidoTest extends TestCase
     {
         $pedido = Pedido::factory()->enEstado(EstadoPedido::Entregado)->create();
 
-        $this->actingAs($this->proveedor())
-            ->post(route('pedidos.avance.store', $pedido))
-            ->assertSessionHas('aviso');
+        Livewire::actingAs($this->proveedor())
+            ->test('seguimiento-tarjeta', ['pedido' => $pedido])
+            ->call('avanzar')
+            ->assertDispatched('aviso');
 
         $this->assertSame(EstadoPedido::Entregado, $pedido->fresh()->estado);
     }
@@ -99,13 +104,12 @@ class SeguimientoPedidoTest extends TestCase
             ->enEstado(EstadoPedido::Preparacion)
             ->create();
 
-        $this->actingAs($this->proveedor())
-            ->post(route('pedidos.avance.store', $pedido), [
-                'recibido_por' => 'Ana Quispe',
-                'cobrado' => '1',
-            ])
-            ->assertSessionHasNoErrors()
-            ->assertRedirect();
+        Livewire::actingAs($this->proveedor())
+            ->test('seguimiento-tarjeta', ['pedido' => $pedido])
+            ->set('recibido_por', 'Ana Quispe')
+            ->set('cobrado', true)
+            ->call('avanzar')
+            ->assertHasNoErrors();
 
         $pedido->refresh();
 
@@ -123,9 +127,10 @@ class SeguimientoPedidoTest extends TestCase
             ->enEstado(EstadoPedido::Preparacion)
             ->create();
 
-        $this->actingAs($this->proveedor())
-            ->post(route('pedidos.avance.store', $pedido), ['recibido_por' => 'Ana Quispe'])
-            ->assertRedirect();
+        Livewire::actingAs($this->proveedor())
+            ->test('seguimiento-tarjeta', ['pedido' => $pedido])
+            ->set('recibido_por', 'Ana Quispe')
+            ->call('avanzar');
 
         $this->assertSame(EstadoPago::Pendiente, $pedido->fresh()->estado_pago);
     }
@@ -134,9 +139,11 @@ class SeguimientoPedidoTest extends TestCase
     {
         $pedido = Pedido::factory()->enEstado(EstadoPedido::Pendiente)->create();
 
-        $this->actingAs($this->proveedor())
-            ->post(route('pedidos.avance.store', $pedido), ['recibido_por' => 'Ana Quispe', 'cobrado' => '1'])
-            ->assertRedirect();
+        Livewire::actingAs($this->proveedor())
+            ->test('seguimiento-tarjeta', ['pedido' => $pedido])
+            ->set('recibido_por', 'Ana Quispe')
+            ->set('cobrado', true)
+            ->call('avanzar');
 
         $pedido->refresh();
 
@@ -161,8 +168,9 @@ class SeguimientoPedidoTest extends TestCase
     {
         $pedido = Pedido::factory()->create();
 
-        $this->actingAs(User::factory()->conRol(Rol::Cliente)->create())
-            ->post(route('pedidos.avance.store', $pedido))
+        Livewire::actingAs(User::factory()->conRol(Rol::Cliente)->create())
+            ->test('seguimiento-tarjeta', ['pedido' => $pedido])
+            ->call('avanzar')
             ->assertForbidden();
 
         $this->assertSame(EstadoPedido::Pendiente, $pedido->fresh()->estado);

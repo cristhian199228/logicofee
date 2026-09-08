@@ -11,6 +11,7 @@ use App\Models\PedidoLinea;
 use App\Models\Producto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class ReporteTest extends TestCase
@@ -22,14 +23,19 @@ class ReporteTest extends TestCase
         Pedido::factory()->count(2)->enEstado(EstadoPedido::Pendiente)->create();
         Pedido::factory()->enEstado(EstadoPedido::Entregado)->create();
 
-        $this->actingAs($this->administrador())
-            ->get(route('reportes.index'))
-            ->assertOk()
+        $resumen = Livewire::actingAs($this->administrador())
+            ->test('reportes')
             ->assertSee('Pedidos por estado')
             ->assertSee('Ticket promedio')
-            ->assertViewHas('totalPedidos', 3)
-            ->assertViewHas('porEstado', fn ($porEstado) => $porEstado->firstWhere('estado', EstadoPedido::Pendiente)['cantidad'] === 2
-                && $porEstado->firstWhere('estado', EstadoPedido::Entregado)['cantidad'] === 1);
+            ->instance()
+            ->resumen;
+
+        $this->assertSame(3, $resumen->totalPedidos());
+
+        $porEstado = $resumen->pedidosPorEstado();
+
+        $this->assertSame(2, $porEstado->firstWhere('estado', EstadoPedido::Pendiente)['cantidad']);
+        $this->assertSame(1, $porEstado->firstWhere('estado', EstadoPedido::Entregado)['cantidad']);
     }
 
     public function test_el_panel_lista_los_productos_mas_vendidos(): void
@@ -41,13 +47,17 @@ class ReporteTest extends TestCase
         PedidoLinea::factory()->for($pedido)->deProducto($estrella, 12)->create();
         PedidoLinea::factory()->for($pedido)->deProducto($otro, 3)->create();
 
-        $this->actingAs($this->administrador())
-            ->get(route('reportes.index'))
-            ->assertOk()
+        $resumen = Livewire::actingAs($this->administrador())
+            ->test('reportes')
             ->assertSee('Geisha Blend Premium')
-            ->assertViewHas('masVendidos', fn ($masVendidos) => $masVendidos->first()['nombre'] === 'Geisha Blend Premium'
-                && $masVendidos->first()['unidades'] === 12)
-            ->assertViewHas('unidadesVendidas', 15);
+            ->instance()
+            ->resumen;
+
+        $masVendidos = $resumen->productosMasVendidos();
+
+        $this->assertSame('Geisha Blend Premium', $masVendidos->first()['nombre']);
+        $this->assertSame(12, $masVendidos->first()['unidades']);
+        $this->assertSame(15, $resumen->unidadesVendidas());
     }
 
     public function test_las_ventas_se_agrupan_por_el_periodo_elegido(): void
@@ -55,20 +65,23 @@ class ReporteTest extends TestCase
         Pedido::factory()->create(['total' => 100.00, 'created_at' => now()]);
         Pedido::factory()->create(['total' => 50.00, 'created_at' => now()->subMonths(2)]);
 
-        $respuesta = $this->actingAs($this->administrador())
-            ->get(route('reportes.index', ['periodo' => PeriodoReporte::Mes->value]));
+        $panel = Livewire::actingAs($this->administrador())
+            ->test('reportes')
+            ->set('periodo', PeriodoReporte::Mes->value);
 
-        $respuesta->assertOk()
-            ->assertViewHas('periodo', PeriodoReporte::Mes)
-            ->assertViewHas('ventas', fn ($ventas) => $ventas->count() === PeriodoReporte::Mes->tramos()
-                && $ventas->last()['total'] === 100.00
-                && $ventas->sum('total') === 150.00);
+        $this->assertSame(PeriodoReporte::Mes, $panel->instance()->periodoElegido);
+
+        $ventas = $panel->instance()->resumen->ventasPorTramo();
+
+        $this->assertCount(PeriodoReporte::Mes->tramos(), $ventas);
+        $this->assertSame(100.00, $ventas->last()['total']);
+        $this->assertSame(150.00, $ventas->sum('total'));
 
         // El periodo por día solo alcanza los últimos siete tramos.
-        $this->actingAs($this->administrador())
-            ->get(route('reportes.index'))
-            ->assertViewHas('periodo', PeriodoReporte::Dia)
-            ->assertViewHas('ventas', fn ($ventas) => $ventas->sum('total') === 100.00);
+        $porDia = Livewire::actingAs($this->administrador())->test('reportes');
+
+        $this->assertSame(PeriodoReporte::Dia, $porDia->instance()->periodoElegido);
+        $this->assertSame(100.00, $porDia->instance()->resumen->ventasPorTramo()->sum('total'));
     }
 
     public function test_el_panel_avisa_del_stock_bajo_y_de_los_lotes_bloqueados(): void
@@ -80,13 +93,15 @@ class ReporteTest extends TestCase
         Lote::factory()->for($abastecido)->conCantidad(15)->create();
         $abastecido->sincronizarStock();
 
-        $this->actingAs($this->administrador())
-            ->get(route('reportes.index'))
-            ->assertOk()
+        $resumen = Livewire::actingAs($this->administrador())
+            ->test('reportes')
             ->assertSee('Mocha Espresso')
-            ->assertViewHas('lotesBloqueados', 1)
-            ->assertViewHas('lotesSinEvaluar', 1)
-            ->assertViewHas('alertasDeStock', fn ($alertas) => $alertas->pluck('nombre')->all() === ['Mocha Espresso']);
+            ->instance()
+            ->resumen;
+
+        $this->assertSame(1, $resumen->lotesBloqueados());
+        $this->assertSame(1, $resumen->lotesSinEvaluar());
+        $this->assertSame(['Mocha Espresso'], $resumen->alertasDeStock()->pluck('nombre')->all());
     }
 
     public function test_solo_administracion_y_direccion_abren_el_panel(): void

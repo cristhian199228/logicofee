@@ -88,13 +88,9 @@
 
     <div class="mt-4 flex flex-wrap items-center justify-end gap-3 border-t border-coffee-300 pt-3">
         @if ($puedeCobrar && ! $pedido->pagado())
-            <form method="POST" action="{{ route('pedidos.pago.update', $pedido) }}" class="mr-auto">
-                @csrf @method('PATCH')
-                <button type="submit"
-                    class="rounded-full border-2 border-coffee-500 px-4 py-1.5 text-sm font-semibold text-coffee-600 transition hover:bg-coffee-500 hover:text-white focus:outline-none focus-visible:ring-4 focus-visible:ring-coffee-500/25">
-                    Registrar cobro
-                </button>
-            </form>
+            <button type="button" wire:click="cobrar({{ $pedido->id }})" class="mr-auto rounded-full border-2 border-coffee-500 px-4 py-1.5 text-sm font-semibold text-coffee-600 transition hover:bg-coffee-500 hover:text-white focus:outline-none focus-visible:ring-4 focus-visible:ring-coffee-500/25">
+                Registrar cobro
+            </button>
         @endif
 
         <span class="text-sm font-semibold text-coffee-700/70">Total del Pedido:</span>

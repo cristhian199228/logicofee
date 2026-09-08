@@ -7,6 +7,7 @@ use App\Models\Lote;
 use App\Models\Producto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class BajaLoteTest extends TestCase
@@ -19,13 +20,13 @@ class BajaLoteTest extends TestCase
         $lote = Lote::factory()->for($producto)->conCantidad(40)->vencido()->create(['codigo' => 'L-5501']);
         $producto->sincronizarStock();
 
-        $this->actingAs($this->logistica())
-            ->post(route('lotes.baja.store', $lote), [
-                'cantidad' => 15,
-                'motivo' => 'Lote vencido retirado del almacén',
-            ])
-            ->assertSessionHasNoErrors()
-            ->assertRedirect();
+        Livewire::actingAs($this->logistica())
+            ->test('baja-lote', ['lote' => $lote])
+            ->set('cantidad', 15)
+            ->set('motivo', 'Lote vencido retirado del almacén')
+            ->call('darDeBaja')
+            ->assertHasNoErrors()
+            ->assertDispatched('almacen-actualizado');
 
         $lote->refresh();
 
@@ -40,9 +41,12 @@ class BajaLoteTest extends TestCase
     {
         $lote = Lote::factory()->conCantidad(10)->create();
 
-        $this->actingAs($this->logistica())
-            ->post(route('lotes.baja.store', $lote), ['cantidad' => 11, 'motivo' => 'Humedad'])
-            ->assertSessionHasErrors('cantidad', null, 'baja-'.$lote->id);
+        Livewire::actingAs($this->logistica())
+            ->test('baja-lote', ['lote' => $lote])
+            ->set('cantidad', 11)
+            ->set('motivo', 'Humedad')
+            ->call('darDeBaja')
+            ->assertHasErrors('cantidad');
 
         $this->assertSame(10, $lote->fresh()->cantidad_disponible);
     }
@@ -51,9 +55,11 @@ class BajaLoteTest extends TestCase
     {
         $lote = Lote::factory()->conCantidad(10)->create();
 
-        $this->actingAs($this->logistica())
-            ->post(route('lotes.baja.store', $lote), ['cantidad' => 2])
-            ->assertSessionHasErrors('motivo', null, 'baja-'.$lote->id);
+        Livewire::actingAs($this->logistica())
+            ->test('baja-lote', ['lote' => $lote])
+            ->set('cantidad', 2)
+            ->call('darDeBaja')
+            ->assertHasErrors('motivo');
 
         $this->assertSame(0, $lote->fresh()->cantidad_baja);
     }
@@ -63,8 +69,11 @@ class BajaLoteTest extends TestCase
         $lote = Lote::factory()->conCantidad(10)->create();
 
         foreach ([Rol::MarketingVentas, Rol::DireccionGeneral, Rol::Cliente] as $rol) {
-            $this->actingAs(User::factory()->conRol($rol)->create())
-                ->post(route('lotes.baja.store', $lote), ['cantidad' => 5, 'motivo' => 'Prueba'])
+            Livewire::actingAs(User::factory()->conRol($rol)->create())
+                ->test('baja-lote', ['lote' => $lote])
+                ->set('cantidad', 5)
+                ->set('motivo', 'Prueba')
+                ->call('darDeBaja')
                 ->assertForbidden();
         }
 

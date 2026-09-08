@@ -6,6 +6,7 @@ use App\Enums\Rol;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class UsuarioTest extends TestCase
@@ -26,18 +27,17 @@ class UsuarioTest extends TestCase
 
     public function test_el_administrador_crea_una_cuenta_con_su_rol(): void
     {
-        $this->actingAs($this->administrador())
-            ->post(route('usuarios.store'), [
-                'username' => 'despacho',
-                'name' => 'Ana Quispe',
-                'email' => 'despacho@logicoffee.test',
-                'password' => 'demo12345',
-                'password_confirmation' => 'demo12345',
-                'rol' => Rol::Proveedor->value,
-                'descripcion' => 'Coordina la entrega de pedidos.',
-            ])
-            ->assertSessionHasNoErrors()
-            ->assertRedirect();
+        Livewire::actingAs($this->administrador())
+            ->test('usuarios')
+            ->set('username', 'despacho')
+            ->set('name', 'Ana Quispe')
+            ->set('email', 'despacho@logicoffee.test')
+            ->set('password', 'demo12345')
+            ->set('password_confirmation', 'demo12345')
+            ->set('rol', Rol::Proveedor->value)
+            ->set('descripcion', 'Coordina la entrega de pedidos.')
+            ->call('crear')
+            ->assertHasNoErrors();
 
         $usuario = User::where('username', 'despacho')->sole();
 
@@ -51,16 +51,16 @@ class UsuarioTest extends TestCase
     {
         User::factory()->create(['username' => 'despacho']);
 
-        $this->actingAs($this->administrador())
-            ->post(route('usuarios.store'), [
-                'username' => 'despacho',
-                'name' => 'Ana Quispe',
-                'email' => 'otro@logicoffee.test',
-                'password' => 'demo12345',
-                'password_confirmation' => 'demo12345',
-                'rol' => Rol::Cliente->value,
-            ])
-            ->assertSessionHasErrors('username');
+        Livewire::actingAs($this->administrador())
+            ->test('usuarios')
+            ->set('username', 'despacho')
+            ->set('name', 'Ana Quispe')
+            ->set('email', 'otro@logicoffee.test')
+            ->set('password', 'demo12345')
+            ->set('password_confirmation', 'demo12345')
+            ->set('rol', Rol::Cliente->value)
+            ->call('crear')
+            ->assertHasErrors('username');
 
         $this->assertDatabaseCount('users', 2);
     }
@@ -69,13 +69,11 @@ class UsuarioTest extends TestCase
     {
         $usuario = User::factory()->conRol(Rol::Cliente)->create(['name' => 'Ana Quispe']);
 
-        $this->actingAs($this->administrador())
-            ->patch(route('usuarios.update', $usuario), [
-                'name' => 'Ana Quispe',
-                'email' => $usuario->email,
-                'rol' => Rol::Proveedor->value,
-            ])
-            ->assertSessionHasNoErrors();
+        Livewire::actingAs($this->administrador())
+            ->test('usuario-editor', ['usuario' => $usuario])
+            ->set('rol', Rol::Proveedor->value)
+            ->call('guardar')
+            ->assertHasNoErrors();
 
         $this->assertSame(Rol::Proveedor, $usuario->fresh()->rol);
     }
@@ -84,13 +82,11 @@ class UsuarioTest extends TestCase
     {
         $administrador = $this->administrador();
 
-        $this->actingAs($administrador)
-            ->patch(route('usuarios.update', $administrador), [
-                'name' => $administrador->name,
-                'email' => $administrador->email,
-                'rol' => Rol::Cliente->value,
-            ])
-            ->assertSessionHasNoErrors();
+        Livewire::actingAs($administrador)
+            ->test('usuario-editor', ['usuario' => $administrador])
+            ->set('rol', Rol::Cliente->value)
+            ->call('guardar')
+            ->assertHasNoErrors();
 
         $this->assertSame(Rol::Administrador, $administrador->fresh()->rol);
     }
@@ -102,17 +98,21 @@ class UsuarioTest extends TestCase
             'password' => 'demo1234',
         ]);
 
-        $this->actingAs($this->administrador())
-            ->patch(route('usuarios.estado.update', $usuario))
-            ->assertSessionHasNoErrors();
+        Livewire::actingAs($this->administrador())
+            ->test('usuarios')
+            ->call('alternarEstado', $usuario->id)
+            ->assertHasNoErrors();
 
         $this->assertFalse($usuario->fresh()->activo);
 
         // El administrador cierra su sesión antes de probar el acceso del cliente.
-        $this->post(route('logout'));
+        Livewire::test('cerrar-sesion')->call('cerrar');
 
-        $this->post(route('login'), ['usuario' => 'cliente', 'password' => 'demo1234'])
-            ->assertSessionHasErrors('usuario');
+        Livewire::test('login')
+            ->set('usuario', 'cliente')
+            ->set('password', 'demo1234')
+            ->call('entrar')
+            ->assertHasErrors('usuario');
 
         $this->assertGuest();
     }
@@ -132,9 +132,10 @@ class UsuarioTest extends TestCase
     {
         $administrador = $this->administrador();
 
-        $this->actingAs($administrador)
-            ->patch(route('usuarios.estado.update', $administrador))
-            ->assertSessionHas('aviso', 'No puedes desactivar tu propia cuenta.');
+        Livewire::actingAs($administrador)
+            ->test('usuarios')
+            ->call('alternarEstado', $administrador->id)
+            ->assertSet('aviso', 'No puedes desactivar tu propia cuenta.');
 
         $this->assertTrue($administrador->fresh()->activo);
     }
@@ -147,8 +148,15 @@ class UsuarioTest extends TestCase
             $otro = User::factory()->conRol($rol)->create();
 
             $this->actingAs($otro)->get(route('usuarios.index'))->assertForbidden();
-            $this->actingAs($otro)
-                ->patch(route('usuarios.estado.update', $usuario))
+
+            Livewire::actingAs($otro)
+                ->test('usuarios')
+                ->call('alternarEstado', $usuario->id)
+                ->assertForbidden();
+
+            Livewire::actingAs($otro)
+                ->test('usuario-editor', ['usuario' => $usuario])
+                ->call('guardar')
                 ->assertForbidden();
         }
 
