@@ -11,8 +11,8 @@ use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
- * Las cuentas de demostración se definen una sola vez, en config/logicoffee.php:
- * el seeder las crea y la pantalla de ingreso las lista.
+ * Las cuentas de demostración se definen una sola vez, en config/logicoffee.php,
+ * y solo las usa el seeder: la pantalla de ingreso no publica credenciales.
  */
 class CuentasDemoTest extends TestCase
 {
@@ -69,15 +69,14 @@ class CuentasDemoTest extends TestCase
         }
     }
 
-    public function test_la_pantalla_de_login_lista_las_cuentas_de_todos_los_roles(): void
+    public function test_la_pantalla_de_login_no_publica_las_credenciales(): void
     {
         $respuesta = $this->get(route('login'))->assertOk();
 
-        $respuesta->assertSee(config('logicoffee.password_demo'));
+        $respuesta->assertDontSee(config('logicoffee.password_demo'));
 
         foreach (config('logicoffee.cuentas_demo') as $cuenta) {
-            $respuesta->assertSee($cuenta['username'])
-                ->assertSee($cuenta['rol']);
+            $respuesta->assertDontSee($cuenta['username']);
         }
     }
 }

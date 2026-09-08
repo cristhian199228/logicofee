@@ -100,7 +100,7 @@ new #[Layout('components.layouts.invitado', ['titulo' => 'Iniciar sesión'])] cl
 };
 ?>
 
-<main class="flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-12">
+<main class="flex min-h-screen flex-col items-center justify-center px-4 py-12">
 
     <section class="relative w-full max-w-md rounded-3xl border-2 border-coffee-300 bg-coffee-50 p-8 shadow-xl shadow-coffee-800/10 sm:p-10"
         aria-labelledby="login-titulo">
@@ -124,7 +124,7 @@ new #[Layout('components.layouts.invitado', ['titulo' => 'Iniciar sesión'])] cl
                     Usuario <span class="text-ladrillo-500" aria-hidden="true">*</span>
                 </label>
                 <input type="text" id="usuario" wire:model="usuario" autofocus
-                    autocomplete="username" placeholder="Ej. admin"
+                    autocomplete="username" placeholder="Tu usuario"
                     @class([
                         'mt-2 w-full rounded-xl border bg-white px-4 py-3 text-coffee-900 placeholder:text-coffee-700/40 transition focus:outline-none focus:ring-4',
                         'border-ladrillo-500 focus:border-ladrillo-500 focus:ring-ladrillo-500/15' => $errors->any(),
@@ -160,21 +160,4 @@ new #[Layout('components.layouts.invitado', ['titulo' => 'Iniciar sesión'])] cl
             </button>
         </form>
     </section>
-
-    {{-- Una cuenta por rol; salen de config/logicoffee.php, igual que el seeder. --}}
-    <aside class="w-full max-w-md rounded-2xl border border-coffee-300 bg-coffee-50/60 p-4">
-        <p class="text-xs font-semibold uppercase tracking-wide text-coffee-700/70">Credenciales de demostración</p>
-        <p class="mt-1 text-xs text-coffee-700/60">
-            Todas las cuentas usan la contraseña
-            <code class="font-semibold text-coffee-800">{{ config('logicoffee.password_demo') }}</code>.
-        </p>
-        <ul class="mt-3 space-y-1 text-sm text-coffee-800">
-            @foreach (config('logicoffee.cuentas_demo') as $cuenta)
-                <li class="flex justify-between gap-3">
-                    <code class="font-semibold">{{ $cuenta['username'] }}</code>
-                    <span class="text-coffee-700/70">{{ $cuenta['rol'] }}</span>
-                </li>
-            @endforeach
-        </ul>
-    </aside>
 </main>
