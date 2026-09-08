@@ -12,7 +12,7 @@ use Tests\TestCase;
 
 /**
  * Las cuentas de demostración se definen una sola vez, en config/logicoffee.php,
- * y solo las usa el seeder: la pantalla de ingreso no publica credenciales.
+ * y de ahí salen tanto el seeder como el listado de la pantalla de ingreso.
  */
 class CuentasDemoTest extends TestCase
 {
@@ -69,14 +69,33 @@ class CuentasDemoTest extends TestCase
         }
     }
 
-    public function test_la_pantalla_de_login_no_publica_las_credenciales(): void
+    public function test_la_pantalla_de_login_lista_todas_las_cuentas(): void
     {
         $respuesta = $this->get(route('login'))->assertOk();
 
-        $respuesta->assertDontSee(config('logicoffee.password_demo'));
+        $respuesta->assertSee(config('logicoffee.password_demo'));
 
         foreach (config('logicoffee.cuentas_demo') as $cuenta) {
-            $respuesta->assertDontSee($cuenta['username']);
+            $respuesta->assertSee($cuenta['username']);
+            $respuesta->assertSee($cuenta['name']);
         }
+    }
+
+    public function test_elegir_una_cuenta_completa_el_formulario(): void
+    {
+        $cuenta = config('logicoffee.cuentas_demo')[0];
+
+        Livewire::test('login')
+            ->call('usarCuentaDemo', $cuenta['username'])
+            ->assertSet('usuario', $cuenta['username'])
+            ->assertSet('password', config('logicoffee.password_demo'));
+    }
+
+    public function test_un_usuario_que_no_es_de_demostracion_no_completa_nada(): void
+    {
+        Livewire::test('login')
+            ->call('usarCuentaDemo', 'inexistente')
+            ->assertSet('usuario', '')
+            ->assertSet('password', '');
     }
 }

@@ -26,6 +26,11 @@
     --color-ladrillo-500: #b5453a;
 }
 
+/* Alpine oculta el menú móvil antes de arrancar. */
+[x-cloak] {
+    display: none !important;
+}
+
 /* El modal de confirmación usa <dialog>; el fondo replica bg-coffee-900/50. */
 dialog::backdrop {
     background-color: color-mix(in oklab, var(--color-coffee-900) 50%, transparent);

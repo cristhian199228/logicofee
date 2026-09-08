@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
@@ -18,6 +19,32 @@ new #[Layout('components.layouts.invitado', ['titulo' => 'Iniciar sesión'])] cl
     public string $password = '';
 
     public bool $recordarme = false;
+
+    /**
+     * Cuentas de demostración que la pantalla ofrece para probar cada rol.
+     *
+     * @return list<array{username: string, name: string, rol: string, iniciales: string, descripcion: string}>
+     */
+    #[Computed]
+    public function cuentasDemo(): array
+    {
+        return config('logicoffee.cuentas_demo');
+    }
+
+    /** Completa el formulario con la cuenta de demostración elegida. */
+    public function usarCuentaDemo(string $username): void
+    {
+        $cuenta = collect($this->cuentasDemo())->firstWhere('username', $username);
+
+        if ($cuenta === null) {
+            return;
+        }
+
+        $this->usuario = $cuenta['username'];
+        $this->password = config('logicoffee.password_demo');
+
+        $this->resetValidation();
+    }
 
     /**
      * Autentica las credenciales del formulario y entra por la primera
@@ -159,5 +186,37 @@ new #[Layout('components.layouts.invitado', ['titulo' => 'Iniciar sesión'])] cl
                 <span wire:loading wire:target="entrar">Entrando…</span>
             </button>
         </form>
+    </section>
+
+    {{-- Cuentas del seeder, para probar cada rol sin crear usuarios a mano. --}}
+    <section class="mt-6 w-full max-w-md rounded-3xl border border-coffee-300 bg-white p-6 shadow-sm shadow-coffee-800/5"
+        aria-labelledby="cuentas-demo-titulo">
+
+        <h2 id="cuentas-demo-titulo" class="font-display text-lg font-bold text-coffee-800">Cuentas de demostración</h2>
+        <p class="mt-1 text-sm leading-relaxed text-coffee-700/70">
+            Todas comparten la contraseña
+            <span class="font-mono font-bold text-coffee-800">{{ config('logicoffee.password_demo') }}</span>.
+            Elige una para completar el formulario.
+        </p>
+
+        <ul class="mt-4 space-y-2">
+            @foreach ($this->cuentasDemo as $cuenta)
+                <li>
+                    <button type="button" wire:click="usarCuentaDemo('{{ $cuenta['username'] }}')"
+                        title="{{ $cuenta['descripcion'] }}"
+                        class="flex w-full items-center gap-3 rounded-2xl border border-coffee-200 bg-coffee-50 px-3 py-2.5 text-left transition hover:border-coffee-400 hover:bg-coffee-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-coffee-500/20">
+                        <span class="grid size-9 shrink-0 place-items-center rounded-full bg-coffee-700 text-xs font-bold text-coffee-100">
+                            {{ $cuenta['iniciales'] }}
+                        </span>
+                        <span class="min-w-0 flex-1">
+                            <span class="block truncate text-sm font-semibold text-coffee-800">{{ $cuenta['name'] }}</span>
+                            <span class="block truncate text-xs text-coffee-700/60">
+                                <span class="font-mono">{{ $cuenta['username'] }}</span> · {{ $cuenta['rol'] }}
+                            </span>
+                        </span>
+                    </button>
+                </li>
+            @endforeach
+        </ul>
     </section>
 </main>

@@ -147,6 +147,13 @@ new #[Layout('components.layouts.app', ['titulo' => 'Nuevo pedido'])] class exte
         return $this->carrito()->subtotal() + $this->envio();
     }
 
+    /** Contenido del QR de Yape: comercio y monto exacto que se va a cobrar. */
+    #[Computed]
+    public function cobroYape(): string
+    {
+        return sprintf('yape://logicoffee/cobro?monto=%s&moneda=PEN', number_format($this->total(), 2, '.', ''));
+    }
+
     public function sumar(int $productoId): void
     {
         $this->ajustar($productoId, 1);
@@ -196,7 +203,7 @@ new #[Layout('components.layouts.app', ['titulo' => 'Nuevo pedido'])] class exte
 
     private function refrescarCarrito(): void
     {
-        unset($this->carrito, $this->envio, $this->total);
+        unset($this->carrito, $this->envio, $this->total, $this->cobroYape);
 
         $this->dispatch('carrito-actualizado');
     }
@@ -460,9 +467,12 @@ new #[Layout('components.layouts.app', ['titulo' => 'Nuevo pedido'])] class exte
                 @if ($metodo_pago === MetodoPago::Yape->value)
                     <div class="mt-4 rounded-xl border border-coffee-300 bg-white p-4">
                         <div class="flex flex-wrap items-start gap-4">
-                            <span class="grid size-20 shrink-0 place-items-center rounded-xl bg-[#742384] text-center font-display text-sm font-bold leading-tight text-white">
-                                Yape<br />QR
-                            </span>
+                            <div class="shrink-0 rounded-2xl bg-[#742384] px-3 py-2.5 text-center">
+                                <span class="block font-display text-xs font-bold uppercase tracking-[0.2em] text-white/80">Yape</span>
+                                <x-qr-simulado :contenido="$this->cobroYape" etiqueta="Código QR simulado para pagar con Yape"
+                                    clase="mt-1.5 size-28 rounded-lg bg-white p-1 text-[#742384]" />
+                                <x-precio :valor="$this->total" class="mt-1.5 block font-mono text-sm font-bold text-white" />
+                            </div>
 
                             <div class="min-w-0 flex-1">
                                 <label for="yape_celular" class="block text-sm font-semibold text-coffee-800">Celular con Yape</label>
@@ -473,7 +483,8 @@ new #[Layout('components.layouts.app', ['titulo' => 'Nuevo pedido'])] class exte
                                     <p class="mt-1.5 text-xs font-semibold text-ladrillo-500">{{ $message }}</p>
                                 @enderror
                                 <p class="mt-1.5 text-xs text-coffee-700/60">
-                                    Al confirmar se genera el código de operación de la transferencia.
+                                    Escanea el QR con la app de Yape o escribe el celular. El QR es de demostración:
+                                    al confirmar se genera el código de operación de la transferencia.
                                 </p>
                             </div>
                         </div>

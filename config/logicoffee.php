@@ -47,10 +47,12 @@ return [
     |--------------------------------------------------------------------------
     |
     | Una cuenta por rol, con el menú y los permisos que el enum Rol define para
-    | su área. Esta es la única definición y solo la usa el UsuarioSeeder: la
-    | pantalla de ingreso no las muestra, para no publicar credenciales.
+    | su área. Esta es la única definición: la usan el UsuarioSeeder y la
+    | pantalla de ingreso, que las lista para probar cada rol de un clic.
     |
-    | Todas comparten la misma contraseña y deben cambiarse antes de un uso real.
+    | Todas comparten la misma contraseña y quedan a la vista de cualquiera que
+    | abra el login: son solo para la demostración y deben eliminarse, junto con
+    | este listado, antes de un uso real.
     |
     */
 
