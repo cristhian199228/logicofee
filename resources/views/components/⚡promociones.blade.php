@@ -68,7 +68,10 @@ new #[Layout('components.layouts.app', ['titulo' => 'Promociones'])] class exten
                 Destaca productos, define el descuento y la vigencia con la que aparecen en el catálogo.
             </p>
         </div>
-        <span class="rounded-full border border-coffee-300 bg-white px-4 py-2 text-sm font-semibold text-coffee-700">Marketing y ventas</span>
+        <div class="flex flex-wrap items-center gap-3">
+            <span class="rounded-full border border-coffee-300 bg-white px-4 py-2 text-sm font-semibold text-coffee-700">Marketing y ventas</span>
+            <x-reporte-descargas seccion="promociones" />
+        </div>
     </div>
 
     <dl class="mt-6 grid gap-4 sm:grid-cols-3">

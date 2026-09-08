@@ -265,10 +265,13 @@ new #[Layout('components.layouts.app', ['titulo' => 'Nuevo pedido'])] class exte
                 Registra los datos del cliente y las cantidades. El pedido queda en estado "Pendiente".
             </p>
         </div>
-        <a href="{{ route('catalogo.index') }}" wire:navigate
-            class="rounded-full border border-coffee-300 bg-white px-4 py-2 text-sm font-semibold text-coffee-700 transition hover:border-coffee-500">
-            ← Volver al catálogo
-        </a>
+        <div class="flex flex-wrap items-center gap-3">
+            <a href="{{ route('catalogo.index') }}" wire:navigate
+                class="rounded-full border border-coffee-300 bg-white px-4 py-2 text-sm font-semibold text-coffee-700 transition hover:border-coffee-500">
+                ← Volver al catálogo
+            </a>
+            <x-reporte-descargas seccion="pedido" />
+        </div>
     </div>
 
     <form wire:submit="registrar" class="mt-6 grid gap-6 lg:grid-cols-[1fr_22rem] lg:items-start">

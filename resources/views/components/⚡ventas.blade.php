@@ -70,7 +70,10 @@ new #[Layout('components.layouts.app', ['titulo' => 'Panel comercial'])] class e
                 Evolución de las ventas, clientes que más compran y rendimiento de las promociones.
             </p>
         </div>
-        <span class="rounded-full border border-coffee-300 bg-white px-4 py-2 text-sm font-semibold text-coffee-700">Marketing y Ventas</span>
+        <div class="flex flex-wrap items-center gap-3">
+            <span class="rounded-full border border-coffee-300 bg-white px-4 py-2 text-sm font-semibold text-coffee-700">Marketing y Ventas</span>
+            <x-reporte-descargas seccion="ventas" :parametros="['periodo' => $periodo->value]" />
+        </div>
     </div>
 
     <dl class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

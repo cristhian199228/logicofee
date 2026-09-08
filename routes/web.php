@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DescargaReporteController;
 use Illuminate\Support\Facades\Route;
 
 // Cada rol entra por la primera sección de su menú.
@@ -20,6 +21,10 @@ Route::middleware('guest')->group(function () {
  * pantalla resuelve sus propias acciones sin recargar el navegador.
  */
 Route::middleware(['auth', 'cuenta.activa'])->group(function () {
+    // Cada sección del menú se descarga en PDF o en Excel desde su propia pantalla.
+    Route::get('reportes/{seccion}/{formato}', DescargaReporteController::class)
+        ->name('reportes.descargar');
+
     Route::middleware('seccion:catalogo')->group(function () {
         Route::livewire('catalogo', 'catalogo')->name('catalogo.index');
     });

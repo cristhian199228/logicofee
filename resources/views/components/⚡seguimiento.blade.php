@@ -85,7 +85,10 @@ new #[Layout('components.layouts.app', ['titulo' => 'Seguimiento de pedidos'])] 
                 {{ $this->pedidos->count() }} {{ $this->pedidos->count() === 1 ? 'pedido' : 'pedidos' }} en total.
             </p>
         </div>
-        <span class="rounded-full border border-coffee-300 bg-white px-4 py-2 text-sm font-semibold text-coffee-700">Tablero</span>
+        <div class="flex flex-wrap items-center gap-3">
+            <span class="rounded-full border border-coffee-300 bg-white px-4 py-2 text-sm font-semibold text-coffee-700">Tablero</span>
+            <x-reporte-descargas seccion="seguimiento" />
+        </div>
     </div>
 
     <div class="mt-8 grid gap-6 lg:grid-cols-3">

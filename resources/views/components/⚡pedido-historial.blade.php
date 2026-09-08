@@ -70,20 +70,24 @@ new #[Layout('components.layouts.app', ['titulo' => 'Historial de Pedidos'])] cl
 <div>
     <x-aviso :mensaje="$aviso" />
 
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <h1 class="font-display text-3xl font-bold text-coffee-700">Pedidos Realizados</h1>
+            <p class="mt-1 text-sm text-coffee-700/70">
+                {{ auth()->user()->rol->veTodosLosPedidos()
+                    ? 'Desglose completo de todos los pedidos registrados.'
+                    : 'Consulta el estado y desglose de tus pedidos.' }}
+            </p>
+        </div>
+        <x-reporte-descargas seccion="historial" />
+    </div>
+
     @if ($this->pedidos->isEmpty())
-        <h1 class="font-display text-3xl font-bold text-coffee-800">Pedidos Realizados</h1>
         <p class="mt-8 rounded-2xl border border-dashed border-coffee-300 p-10 text-center text-sm text-coffee-700/60">
             Todavía no hay pedidos registrados.
             <a href="{{ route('catalogo.index') }}" wire:navigate class="font-semibold text-coffee-600 underline">Ir al catálogo</a>
         </p>
     @else
-        <h1 class="font-display text-3xl font-bold text-coffee-700">Pedidos Realizados</h1>
-        <p class="mt-1 text-sm text-coffee-700/70">
-            {{ auth()->user()->rol->veTodosLosPedidos()
-                ? 'Desglose completo de todos los pedidos registrados.'
-                : 'Consulta el estado y desglose de tus pedidos.' }}
-        </p>
-
         <div class="mt-4 flex flex-wrap items-center gap-2">
             <span class="inline-block rounded-full bg-coffee-200 px-3 py-1 text-xs font-bold text-coffee-800">
                 {{ $this->pedidos->count() }} {{ $this->pedidos->count() === 1 ? 'pedido' : 'pedidos' }}

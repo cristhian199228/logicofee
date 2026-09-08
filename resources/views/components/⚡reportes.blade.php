@@ -56,7 +56,10 @@ new #[Layout('components.layouts.app', ['titulo' => 'Panel de indicadores'])] cl
                 Resumen de pedidos, ventas y productos más vendidos para la toma de decisiones.
             </p>
         </div>
-        <span class="rounded-full border border-coffee-300 bg-white px-4 py-2 text-sm font-semibold text-coffee-700">Gerencia</span>
+        <div class="flex flex-wrap items-center gap-3">
+            <span class="rounded-full border border-coffee-300 bg-white px-4 py-2 text-sm font-semibold text-coffee-700">Gerencia</span>
+            <x-reporte-descargas seccion="reportes" :parametros="['periodo' => $periodo->value]" />
+        </div>
     </div>
 
     <dl class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

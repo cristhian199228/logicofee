@@ -207,7 +207,10 @@ new #[Layout('components.layouts.app', ['titulo' => 'Productos'])] class extends
                 Da de alta cafés, edita sus datos y su foto. El stock no se toca aquí: sale de los lotes del almacén.
             </p>
         </div>
-        <span class="rounded-full border border-coffee-300 bg-white px-4 py-2 text-sm font-semibold text-coffee-700">Gestión de catálogo</span>
+        <div class="flex flex-wrap items-center gap-3">
+            <span class="rounded-full border border-coffee-300 bg-white px-4 py-2 text-sm font-semibold text-coffee-700">Gestión de catálogo</span>
+            <x-reporte-descargas seccion="productos" />
+        </div>
     </div>
 
     <dl class="mt-6 grid gap-4 sm:grid-cols-3">

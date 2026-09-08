@@ -122,6 +122,9 @@ new #[Layout('components.layouts.app', ['titulo' => 'Catálogo'])] class extends
                     'border-coffee-300 bg-white text-coffee-700 hover:border-coffee-500' => $categoria !== ($filtro?->value ?? ''),
                 ])>{{ $filtro?->value ?? 'Todos' }}</button>
         @endforeach
+
+        <x-reporte-descargas seccion="catalogo" :parametros="['q' => $busqueda, 'categoria' => $categoria]"
+            class="ml-auto" />
     </div>
 
     <div class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
