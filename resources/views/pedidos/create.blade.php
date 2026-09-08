@@ -66,7 +66,10 @@
                                 <p class="truncate font-semibold text-coffee-800">{{ $producto->nombre }}</p>
                                 <p class="text-xs text-coffee-700/60">
                                     {{ $producto->presentacion }} · {{ $producto->categoria->etiqueta() }} ·
-                                    <x-precio :valor="$producto->precio" /> c/u
+                                    <x-precio :valor="$producto->precioVigente()" /> c/u
+                                    @if ($producto->tieneDescuento())
+                                        <span class="ml-1 rounded bg-mostaza-400 px-1.5 py-0.5 font-bold text-coffee-900">-{{ $producto->descuento }}%</span>
+                                    @endif
                                 </p>
                             </div>
 
@@ -83,7 +86,7 @@
                                     class="grid size-7 place-items-center rounded-full text-coffee-700 transition hover:bg-coffee-100 disabled:cursor-not-allowed disabled:text-coffee-700/25">+</button>
                             </div>
 
-                            <x-precio :valor="(float) $producto->precio * $linea['cantidad']"
+                            <x-precio :valor="$producto->precioVigente() * $linea['cantidad']"
                                 class="w-20 text-right font-semibold text-coffee-800" />
 
                             <button type="submit" form="carrito-quitar-{{ $producto->id }}"
@@ -104,7 +107,132 @@
             </section>
 
             <section class="rounded-2xl border border-coffee-200 bg-coffee-50 p-6">
-                <h2 class="font-display text-lg font-bold text-coffee-800">3 · Observaciones</h2>
+                <h2 class="font-display text-lg font-bold text-coffee-800">3 · Entrega y pago</h2>
+
+                <fieldset class="mt-4">
+                    <legend class="text-sm font-semibold text-coffee-800">¿Cómo se entrega?</legend>
+
+                    <div class="mt-2 grid gap-3 sm:grid-cols-2">
+                        @foreach ($entregas as $entrega)
+                            <label class="relative block cursor-pointer">
+                                <input type="radio" name="tipo_entrega" value="{{ $entrega->value }}"
+                                    data-envio="{{ number_format($entrega->costoEnvio(), 2, '.', '') }}"
+                                    @checked(old('tipo_entrega', \App\Enums\TipoEntrega::Delivery->value) === $entrega->value)
+                                    class="peer sr-only" />
+                                <span class="block rounded-xl border border-coffee-300 bg-white p-4 transition peer-checked:border-coffee-700 peer-checked:bg-coffee-100 peer-focus-visible:ring-4 peer-focus-visible:ring-coffee-500/20">
+                                    <span class="flex items-baseline justify-between gap-2">
+                                        <span class="font-semibold text-coffee-800">{{ $entrega->titulo() }}</span>
+                                        <span class="text-sm font-bold text-coffee-700">
+                                            {{ $entrega->costoEnvio() > 0 ? '$'.number_format($entrega->costoEnvio(), 2) : 'Sin cargo' }}
+                                        </span>
+                                    </span>
+                                    <span class="mt-1 block text-xs text-coffee-700/60">{{ $entrega->descripcion() }}</span>
+                                </span>
+                            </label>
+                        @endforeach
+                    </div>
+
+                    @error('tipo_entrega')
+                        <p class="mt-1.5 text-xs font-semibold text-ladrillo-500">{{ $message }}</p>
+                    @enderror
+                </fieldset>
+
+                <fieldset class="mt-6">
+                    <legend class="text-sm font-semibold text-coffee-800">¿Cómo se paga?</legend>
+
+                    <div class="mt-2 grid gap-3 sm:grid-cols-3">
+                        @foreach ($metodos as $metodo)
+                            <label class="relative block cursor-pointer">
+                                <input type="radio" name="metodo_pago" value="{{ $metodo->value }}"
+                                    @checked(old('metodo_pago', \App\Enums\MetodoPago::Efectivo->value) === $metodo->value)
+                                    class="peer sr-only" />
+                                <span class="block h-full rounded-xl border border-coffee-300 bg-white p-4 transition peer-checked:border-coffee-700 peer-checked:bg-coffee-100 peer-focus-visible:ring-4 peer-focus-visible:ring-coffee-500/20">
+                                    <span class="font-semibold text-coffee-800">{{ $metodo->value }}</span>
+                                    <span class="mt-1 block text-xs text-coffee-700/60">{{ $metodo->descripcion() }}</span>
+                                </span>
+                            </label>
+                        @endforeach
+                    </div>
+
+                    @error('metodo_pago')
+                        <p class="mt-1.5 text-xs font-semibold text-ladrillo-500">{{ $message }}</p>
+                    @enderror
+                </fieldset>
+
+                <div id="pago-tarjeta" class="mt-4 grid gap-4 rounded-xl border border-coffee-300 bg-white p-4 sm:grid-cols-2"
+                    hidden>
+                    <div class="sm:col-span-2">
+                        <label for="tarjeta_numero" class="block text-sm font-semibold text-coffee-800">Número de la tarjeta</label>
+                        <input type="text" id="tarjeta_numero" name="tarjeta_numero" inputmode="numeric" autocomplete="off"
+                            placeholder="4242 4242 4242 4242" value="{{ old('tarjeta_numero') }}"
+                            class="mt-1.5 w-full rounded-xl border border-coffee-300 bg-white px-4 py-2.5 font-mono text-coffee-900 placeholder:text-coffee-700/40 transition focus:border-coffee-500 focus:outline-none focus:ring-4 focus:ring-coffee-500/15" />
+                        @error('tarjeta_numero')
+                            <p class="mt-1.5 text-xs font-semibold text-ladrillo-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label for="tarjeta_titular" class="block text-sm font-semibold text-coffee-800">Titular</label>
+                        <input type="text" id="tarjeta_titular" name="tarjeta_titular" autocomplete="off"
+                            placeholder="Como aparece en la tarjeta" value="{{ old('tarjeta_titular') }}"
+                            class="mt-1.5 w-full rounded-xl border border-coffee-300 bg-white px-4 py-2.5 text-coffee-900 placeholder:text-coffee-700/40 transition focus:border-coffee-500 focus:outline-none focus:ring-4 focus:ring-coffee-500/15" />
+                        @error('tarjeta_titular')
+                            <p class="mt-1.5 text-xs font-semibold text-ladrillo-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label for="tarjeta_vencimiento" class="block text-sm font-semibold text-coffee-800">Vencimiento</label>
+                        <input type="text" id="tarjeta_vencimiento" name="tarjeta_vencimiento" inputmode="numeric"
+                            placeholder="MM/AA" maxlength="5" value="{{ old('tarjeta_vencimiento') }}"
+                            class="mt-1.5 w-full rounded-xl border border-coffee-300 bg-white px-4 py-2.5 font-mono text-coffee-900 placeholder:text-coffee-700/40 transition focus:border-coffee-500 focus:outline-none focus:ring-4 focus:ring-coffee-500/15" />
+                        @error('tarjeta_vencimiento')
+                            <p class="mt-1.5 text-xs font-semibold text-ladrillo-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label for="tarjeta_cvv" class="block text-sm font-semibold text-coffee-800">Código de seguridad</label>
+                        <input type="text" id="tarjeta_cvv" name="tarjeta_cvv" inputmode="numeric" autocomplete="off"
+                            placeholder="123" maxlength="4"
+                            class="mt-1.5 w-full rounded-xl border border-coffee-300 bg-white px-4 py-2.5 font-mono text-coffee-900 placeholder:text-coffee-700/40 transition focus:border-coffee-500 focus:outline-none focus:ring-4 focus:ring-coffee-500/15" />
+                        @error('tarjeta_cvv')
+                            <p class="mt-1.5 text-xs font-semibold text-ladrillo-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+
+                <div id="pago-yape" class="mt-4 rounded-xl border border-coffee-300 bg-white p-4" hidden>
+                    <div class="flex flex-wrap items-start gap-4">
+                        <span class="grid size-20 shrink-0 place-items-center rounded-xl bg-[#742384] text-center font-display text-sm font-bold leading-tight text-white">
+                            Yape<br />QR
+                        </span>
+
+                        <div class="min-w-0 flex-1">
+                            <label for="yape_celular" class="block text-sm font-semibold text-coffee-800">Celular con Yape</label>
+                            <input type="text" id="yape_celular" name="yape_celular" inputmode="numeric" maxlength="9"
+                                placeholder="987654321" value="{{ old('yape_celular') }}"
+                                class="mt-1.5 w-full rounded-xl border border-coffee-300 bg-white px-4 py-2.5 font-mono text-coffee-900 placeholder:text-coffee-700/40 transition focus:border-coffee-500 focus:outline-none focus:ring-4 focus:ring-coffee-500/15" />
+                            @error('yape_celular')
+                                <p class="mt-1.5 text-xs font-semibold text-ladrillo-500">{{ $message }}</p>
+                            @enderror
+                            <p class="mt-1.5 text-xs text-coffee-700/60">
+                                Al confirmar se genera el código de operación de la transferencia.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="mt-4 rounded-xl border border-coffee-300 bg-white px-4 py-3 text-xs leading-relaxed text-coffee-700/70">
+                    <strong class="font-bold text-coffee-800">Pago simulado.</strong>
+                    No se conecta con ningún banco: cualquier tarjeta o número de Yape se aprueba y devuelve un código
+                    de operación. Para probar un rechazo usa un medio terminado en
+                    <span class="font-mono font-bold text-ladrillo-500">{{ \App\Support\PasarelaPagoSimulada::TERMINACION_RECHAZADA }}</span>.
+                </p>
+            </section>
+
+            <section class="rounded-2xl border border-coffee-200 bg-coffee-50 p-6">
+                <h2 class="font-display text-lg font-bold text-coffee-800">4 · Observaciones</h2>
                 <label for="observaciones" class="sr-only">Observaciones del pedido</label>
                 <textarea id="observaciones" name="observaciones" rows="3"
                     placeholder="Notas de entrega, molienda, horario…"
@@ -129,7 +257,7 @@
                 </div>
                 <div class="flex justify-between text-coffee-800">
                     <dt>Envío</dt>
-                    <dd class="font-semibold">
+                    <dd id="resumen-envio" class="font-semibold">
                         @if ($carrito->vacio())
                             Sin cargo
                         @else
@@ -139,9 +267,10 @@
                 </div>
             </dl>
 
-            <div class="mt-4 flex items-baseline justify-between border-t border-coffee-300 pt-4">
+            <div class="mt-4 flex items-baseline justify-between border-t border-coffee-300 pt-4"
+                data-subtotal="{{ number_format($carrito->subtotal(), 2, '.', '') }}">
                 <span class="font-display text-lg font-bold text-coffee-800">Total</span>
-                <x-precio :valor="$carrito->total()" class="font-display text-2xl font-bold text-coffee-800" />
+                <x-precio id="resumen-total" :valor="$carrito->total()" class="font-display text-2xl font-bold text-coffee-800" />
             </div>
 
             <div class="mt-5 rounded-xl border border-coffee-300 bg-white px-4 py-3 text-sm text-coffee-800">
@@ -155,6 +284,12 @@
                         Para registrar el pedido falta al menos un producto.
                     </p>
                 @endif
+
+                @error('pago')
+                    <p class="rounded-xl border border-ladrillo-500/30 bg-ladrillo-500/10 px-4 py-3 text-xs font-semibold leading-relaxed text-ladrillo-500" role="alert">
+                        {{ $message }}
+                    </p>
+                @enderror
 
                 @error('carrito')
                     <p class="rounded-xl border border-ladrillo-500/30 bg-ladrillo-500/10 px-4 py-3 text-xs font-semibold leading-relaxed text-ladrillo-500" role="alert">

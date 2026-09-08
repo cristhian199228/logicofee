@@ -26,10 +26,12 @@ class CatalogoController extends Controller
 
         return view('catalogo.index', [
             'productos' => $productos,
+            // Promociones vigentes del banner, sin depender de los filtros (HU03).
+            'destacados' => Producto::query()->enPromocion()->orderBy('nombre')->get(),
             'busqueda' => $request->string('q')->toString(),
             'categoria' => $categoria,
             'carrito' => $carrito,
-            'puedeGestionarInventario' => $request->user()->rol->puedeGestionarInventario(),
+            'puedeEditarCatalogo' => $request->user()->rol->puedeEditarCatalogo(),
         ]);
     }
 }

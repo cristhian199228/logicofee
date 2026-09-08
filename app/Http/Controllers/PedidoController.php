@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Actions\RegistrarPedido;
+use App\Enums\MetodoPago;
+use App\Enums\TipoEntrega;
 use App\Http\Requests\StorePedidoRequest;
 use App\Models\Pedido;
 use App\Support\Carrito;
@@ -28,6 +30,8 @@ class PedidoController extends Controller
 
         return view('pedidos.index', [
             'pedidos' => $pedidos,
+            'porCobrar' => (float) $pedidos->filter->cobroPendiente()->sum('total'),
+            'puedeCobrar' => $usuario->rol->puedeRegistrarCobros(),
         ]);
     }
 
@@ -36,6 +40,8 @@ class PedidoController extends Controller
         return view('pedidos.create', [
             'carrito' => $carrito,
             'usuario' => $request->user(),
+            'entregas' => TipoEntrega::cases(),
+            'metodos' => MetodoPago::cases(),
         ]);
     }
 

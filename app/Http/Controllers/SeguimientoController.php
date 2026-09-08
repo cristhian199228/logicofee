@@ -31,7 +31,7 @@ class SeguimientoController extends Controller
                 ]),
             'total' => $pedidos->count(),
             'recienRegistrado' => session('ultimo_pedido'),
-            'puedeAvanzar' => $usuario->rol->puedeGestionarInventario(),
+            'puedeAvanzar' => $usuario->rol->puedeDespacharPedidos(),
         ]);
     }
 }

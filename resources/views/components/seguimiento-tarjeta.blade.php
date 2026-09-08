@@ -22,9 +22,40 @@
         <x-precio :valor="$pedido->total" class="font-bold text-coffee-800" />
     </p>
 
+    <div class="mt-2 flex flex-wrap items-center gap-2">
+        <x-chip-pago :$pedido />
+        <span class="rounded-full border border-coffee-300 px-2.5 py-0.5 text-[11px] font-semibold text-coffee-700">
+            {{ $pedido->tipo_entrega->value }}
+        </span>
+    </div>
+
     @if (($accion = $pedido->estado->accionSiguiente()) && $puedeAvanzar)
+        @php($esEntrega = $pedido->estado->siguiente() === \App\Enums\EstadoPedido::Entregado)
+
         <form method="POST" action="{{ route('pedidos.avance.store', $pedido) }}">
             @csrf
+
+            @if ($esEntrega)
+                <div class="mt-3 space-y-2 rounded-xl border border-coffee-200 bg-coffee-50 p-3">
+                    <div>
+                        <label for="recibido-{{ $pedido->id }}" class="block text-[11px] font-semibold uppercase tracking-wide text-coffee-700/50">
+                            Recibido por
+                        </label>
+                        <input type="text" id="recibido-{{ $pedido->id }}" name="recibido_por" maxlength="120"
+                            placeholder="Nombre de quien recibe"
+                            class="mt-1 w-full rounded-lg border border-coffee-300 bg-white px-3 py-1.5 text-sm text-coffee-900 placeholder:text-coffee-700/40 transition focus:border-coffee-500 focus:outline-none focus:ring-4 focus:ring-coffee-500/15" />
+                    </div>
+
+                    @if ($pedido->cobroPendiente())
+                        <label class="flex items-center gap-2 text-xs font-semibold text-coffee-800">
+                            <input type="checkbox" name="cobrado" value="1"
+                                class="size-4 rounded border-coffee-300 text-coffee-600 focus:ring-coffee-500/30" />
+                            Cobré el pedido en {{ $pedido->metodo_pago->value }}
+                        </label>
+                    @endif
+                </div>
+            @endif
+
             <button type="submit"
                 class="mt-3 w-full rounded-xl border border-coffee-300 bg-white py-2 text-sm font-semibold text-coffee-700 transition hover:border-coffee-500 hover:bg-coffee-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-coffee-500/20">
                 {{ $accion }} →
@@ -33,6 +64,9 @@
     @elseif ($pedido->estado === \App\Enums\EstadoPedido::Entregado)
         <p class="mt-3 text-xs font-medium text-coffee-700/50">
             entregado {{ $pedido->entregado_at?->format('d/m/Y H:i') }}
+            @if ($pedido->entrega_recibido_por)
+                · recibió {{ $pedido->entrega_recibido_por }}
+            @endif
         </p>
     @else
         <p class="mt-3 text-xs font-medium text-coffee-700/50">en curso</p>

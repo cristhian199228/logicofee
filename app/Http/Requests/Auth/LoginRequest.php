@@ -56,6 +56,26 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->claveLimite());
+
+        $this->asegurarQueLaCuentaEstaActiva();
+    }
+
+    /**
+     * Una cuenta desactivada por el administrador no entra al sistema (HU09).
+     *
+     * @throws ValidationException
+     */
+    private function asegurarQueLaCuentaEstaActiva(): void
+    {
+        if (Auth::user()->activo) {
+            return;
+        }
+
+        Auth::guard('web')->logout();
+
+        throw ValidationException::withMessages([
+            'usuario' => 'Tu cuenta está desactivada. Comunícate con el administrador.',
+        ]);
     }
 
     /**

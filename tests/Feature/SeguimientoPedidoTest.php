@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Enums\EstadoPago;
 use App\Enums\EstadoPedido;
+use App\Enums\MetodoPago;
 use App\Enums\Rol;
 use App\Models\Pedido;
 use App\Models\User;
@@ -88,6 +90,71 @@ class SeguimientoPedidoTest extends TestCase
             ->get(route('seguimiento.index'))
             ->assertOk()
             ->assertSee('Marcar preparación');
+    }
+
+    public function test_la_entrega_anota_quien_recibio_y_cobra_el_efectivo(): void
+    {
+        $pedido = Pedido::factory()
+            ->porCobrar(MetodoPago::Efectivo)
+            ->enEstado(EstadoPedido::Preparacion)
+            ->create();
+
+        $this->actingAs($this->proveedor())
+            ->post(route('pedidos.avance.store', $pedido), [
+                'recibido_por' => 'Ana Quispe',
+                'cobrado' => '1',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+
+        $pedido->refresh();
+
+        $this->assertSame(EstadoPedido::Entregado, $pedido->estado);
+        $this->assertSame('Ana Quispe', $pedido->entrega_recibido_por);
+        $this->assertSame(EstadoPago::Pagado, $pedido->estado_pago);
+        $this->assertSame('COB-'.$pedido->codigo, $pedido->referencia_pago);
+        $this->assertNotNull($pedido->entregado_at);
+    }
+
+    public function test_la_entrega_sin_cobro_deja_el_pago_pendiente(): void
+    {
+        $pedido = Pedido::factory()
+            ->porCobrar(MetodoPago::Efectivo)
+            ->enEstado(EstadoPedido::Preparacion)
+            ->create();
+
+        $this->actingAs($this->proveedor())
+            ->post(route('pedidos.avance.store', $pedido), ['recibido_por' => 'Ana Quispe'])
+            ->assertRedirect();
+
+        $this->assertSame(EstadoPago::Pendiente, $pedido->fresh()->estado_pago);
+    }
+
+    public function test_pasar_a_preparacion_no_anota_datos_de_entrega(): void
+    {
+        $pedido = Pedido::factory()->enEstado(EstadoPedido::Pendiente)->create();
+
+        $this->actingAs($this->proveedor())
+            ->post(route('pedidos.avance.store', $pedido), ['recibido_por' => 'Ana Quispe', 'cobrado' => '1'])
+            ->assertRedirect();
+
+        $pedido->refresh();
+
+        $this->assertSame(EstadoPedido::Preparacion, $pedido->estado);
+        $this->assertNull($pedido->entrega_recibido_por);
+        $this->assertSame(EstadoPago::Pendiente, $pedido->estado_pago);
+    }
+
+    public function test_el_tablero_muestra_el_medio_de_pago_y_la_forma_de_entrega(): void
+    {
+        Pedido::factory()->pagadoCon(MetodoPago::Yape)->recojoEnTienda()->create(['codigo' => 'PED-777']);
+
+        $this->actingAs($this->proveedor())
+            ->get(route('seguimiento.index'))
+            ->assertOk()
+            ->assertSee('PED-777')
+            ->assertSee('Recojo en tienda')
+            ->assertSee('Yape · Pagado');
     }
 
     public function test_el_cliente_no_avanza_pedidos(): void

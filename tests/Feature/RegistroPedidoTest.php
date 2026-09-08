@@ -3,7 +3,10 @@
 namespace Tests\Feature;
 
 use App\Enums\EstadoPedido;
+use App\Enums\MetodoPago;
 use App\Enums\Rol;
+use App\Enums\Seccion;
+use App\Enums\TipoEntrega;
 use App\Models\Pedido;
 use App\Models\Producto;
 use App\Models\User;
@@ -112,9 +115,11 @@ class RegistroPedidoTest extends TestCase
         $this->assertDatabaseCount('pedidos', 0);
     }
 
-    public function test_los_tres_roles_registran_pedidos(): void
+    public function test_los_roles_con_la_seccion_de_pedido_registran_pedidos(): void
     {
-        foreach (Rol::cases() as $rol) {
+        $roles = collect(Rol::cases())->filter(fn (Rol $rol) => $rol->puedeVer(Seccion::Pedido));
+
+        foreach ($roles as $rol) {
             $producto = Producto::factory()->conStock(5)->create();
             $usuario = User::factory()->conRol($rol)->create();
 
@@ -127,7 +132,20 @@ class RegistroPedidoTest extends TestCase
             $this->assertDatabaseHas('pedidos', ['user_id' => $usuario->id]);
         }
 
-        $this->assertDatabaseCount('pedidos', 3);
+        $this->assertDatabaseCount('pedidos', $roles->count());
+    }
+
+    public function test_las_areas_de_almacen_y_produccion_no_registran_pedidos(): void
+    {
+        Producto::factory()->conStock(5)->create();
+
+        foreach ([Rol::LogisticaAlmacen, Rol::ProduccionOperaciones, Rol::DireccionGeneral] as $rol) {
+            $this->actingAs(User::factory()->conRol($rol)->create())
+                ->post(route('pedidos.store'), $this->datosCliente())
+                ->assertForbidden();
+        }
+
+        $this->assertDatabaseCount('pedidos', 0);
     }
 
     public function test_el_carrito_queda_vacio_despues_de_registrar(): void
@@ -150,6 +168,9 @@ class RegistroPedidoTest extends TestCase
             'cliente_nombre' => 'Cafetería Andina',
             'cliente_telefono' => '945664313',
             'cliente_tipo' => 'Cafetería',
+            'cliente_direccion' => 'Av. Ejército 401, Yanahuara',
+            'tipo_entrega' => TipoEntrega::Delivery->value,
+            'metodo_pago' => MetodoPago::Efectivo->value,
         ];
     }
 

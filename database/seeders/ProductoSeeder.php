@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\CategoriaProducto;
 use App\Models\Producto;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 
 class ProductoSeeder extends Seeder
@@ -16,7 +17,8 @@ class ProductoSeeder extends Seeder
 
     /**
      * Catálogo inicial de LogiCoffee. El stock queda en cero: lo aportan los
-     * lotes que registra el LoteSeeder.
+     * lotes que registra el LoteSeeder. Dos productos arrancan destacados en
+     * la sección de promociones del catálogo (HU03).
      */
     public function run(): void
     {
@@ -30,6 +32,8 @@ class ProductoSeeder extends Seeder
                 'precio' => 14.50,
                 'stock_minimo' => 30,
                 'acento' => '#4a7c3f',
+                'destacado' => true,
+                'promocion_titulo' => 'Favorito de cafeterías',
             ],
             [
                 'slug' => 'geisha-1k',
@@ -70,6 +74,11 @@ class ProductoSeeder extends Seeder
                 'precio' => 15.50,
                 'stock_minimo' => 20,
                 'acento' => '#d9a441',
+                'destacado' => true,
+                'promocion_titulo' => 'Semana del origen',
+                'descuento' => 15,
+                'promocion_inicia_at' => '-2 days',
+                'promocion_termina_at' => '+12 days',
             ],
         ];
 
@@ -78,6 +87,12 @@ class ProductoSeeder extends Seeder
 
             Producto::updateOrCreate(['slug' => $producto['slug']], [
                 ...$producto,
+                'promocion_inicia_at' => isset($producto['promocion_inicia_at'])
+                    ? Carbon::parse($producto['promocion_inicia_at'])
+                    : null,
+                'promocion_termina_at' => isset($producto['promocion_termina_at'])
+                    ? Carbon::parse($producto['promocion_termina_at'])
+                    : null,
                 // Al resembrar no se pisan el stock ya sincronizado ni una foto
                 // que alguien haya subido desde el catálogo.
                 'stock' => $existente?->stock ?? 0,

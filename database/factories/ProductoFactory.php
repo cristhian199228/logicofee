@@ -31,6 +31,11 @@ class ProductoFactory extends Factory
             'stock' => 0,
             'stock_minimo' => 15,
             'acento' => fake()->randomElement(['#4a7c3f', '#b5453a', '#17331c', '#7fa95c', '#d9a441']),
+            'destacado' => false,
+            'promocion_titulo' => null,
+            'descuento' => 0,
+            'promocion_inicia_at' => null,
+            'promocion_termina_at' => null,
         ];
     }
 
@@ -48,6 +53,29 @@ class ProductoFactory extends Factory
         return $stock > 0
             ? $this->has(Lote::factory()->conCantidad($stock), 'lotes')
             : $this;
+    }
+
+    /** Producto destacado en el catálogo con una promoción vigente (HU03). */
+    public function enPromocion(int $descuento = 20): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'destacado' => true,
+            'promocion_titulo' => 'Promoción de temporada',
+            'descuento' => $descuento,
+            'promocion_inicia_at' => now()->subDay(),
+            'promocion_termina_at' => now()->addWeek(),
+        ]);
+    }
+
+    /** Destacado con una vigencia que ya terminó. */
+    public function promocionVencida(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'destacado' => true,
+            'descuento' => 20,
+            'promocion_inicia_at' => now()->subMonth(),
+            'promocion_termina_at' => now()->subDay(),
+        ]);
     }
 
     public function agotado(): static

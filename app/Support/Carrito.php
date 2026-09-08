@@ -62,10 +62,11 @@ class Carrito
         return max(0, $producto->stock - $this->cantidadDe($producto));
     }
 
+    /** Suma con el precio vigente de cada producto, promoción incluida (HU03). */
     public function subtotal(): float
     {
         return (float) $this->lineas()->sum(
-            fn (array $linea) => (float) $linea['producto']->precio * $linea['cantidad']
+            fn (array $linea) => $linea['producto']->precioVigente() * $linea['cantidad']
         );
     }
 

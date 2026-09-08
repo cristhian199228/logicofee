@@ -66,7 +66,7 @@ class CatalogoTest extends TestCase
             ->assertSee('Sin stock');
     }
 
-    public function test_los_tres_roles_entran_al_catalogo(): void
+    public function test_todos_los_roles_entran_al_catalogo(): void
     {
         Producto::factory()->conStock(10)->create(['nombre' => 'Bourbon Salvador']);
 
@@ -78,17 +78,21 @@ class CatalogoTest extends TestCase
         }
     }
 
-    public function test_solo_administrador_y_proveedor_ven_el_control_de_fotos(): void
+    public function test_solo_quien_edita_el_catalogo_ve_el_control_de_fotos(): void
     {
         Producto::factory()->conStock(10)->create();
 
-        $this->actingAs(User::factory()->conRol(Rol::Proveedor)->create())
-            ->get(route('catalogo.index'))
-            ->assertSee('Foto del producto');
+        foreach ([Rol::Proveedor, Rol::MarketingVentas] as $rol) {
+            $this->actingAs(User::factory()->conRol($rol)->create())
+                ->get(route('catalogo.index'))
+                ->assertSee('Foto del producto');
+        }
 
-        $this->actingAs(User::factory()->conRol(Rol::Cliente)->create())
-            ->get(route('catalogo.index'))
-            ->assertDontSee('Foto del producto');
+        foreach ([Rol::Cliente, Rol::LogisticaAlmacen] as $rol) {
+            $this->actingAs(User::factory()->conRol($rol)->create())
+                ->get(route('catalogo.index'))
+                ->assertDontSee('Foto del producto');
+        }
     }
 
     private function cliente(): User

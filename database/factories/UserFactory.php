@@ -35,6 +35,7 @@ class UserFactory extends Factory
             'rol' => Rol::Cliente,
             'iniciales' => Str::upper(fake()->lexify('??')),
             'descripcion' => fake()->sentence(),
+            'activo' => true,
         ];
     }
 
@@ -42,6 +43,14 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'rol' => $rol,
+        ]);
+    }
+
+    /** Cuenta desactivada por el administrador (HU09). */
+    public function inactivo(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'activo' => false,
         ]);
     }
 

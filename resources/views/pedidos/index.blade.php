@@ -14,13 +14,21 @@
                 : 'Consulta el estado y desglose de tus pedidos.' }}
         </p>
 
-        <span class="mt-4 inline-block rounded-full bg-coffee-200 px-3 py-1 text-xs font-bold text-coffee-800">
-            {{ $pedidos->count() }} {{ $pedidos->count() === 1 ? 'pedido' : 'pedidos' }}
-        </span>
+        <div class="mt-4 flex flex-wrap items-center gap-2">
+            <span class="inline-block rounded-full bg-coffee-200 px-3 py-1 text-xs font-bold text-coffee-800">
+                {{ $pedidos->count() }} {{ $pedidos->count() === 1 ? 'pedido' : 'pedidos' }}
+            </span>
+
+            @if ($porCobrar > 0)
+                <span class="inline-block rounded-full bg-mostaza-400 px-3 py-1 text-xs font-bold text-coffee-900">
+                    <x-precio :valor="$porCobrar" /> por cobrar
+                </span>
+            @endif
+        </div>
 
         <div class="mt-6 space-y-5">
             @foreach ($pedidos as $pedido)
-                <x-pedido-tarjeta :$pedido />
+                <x-pedido-tarjeta :$pedido :$puedeCobrar />
             @endforeach
         </div>
     @endif

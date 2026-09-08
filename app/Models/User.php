@@ -12,8 +12,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 
-#[Fillable(['username', 'name', 'email', 'password', 'rol', 'iniciales', 'descripcion'])]
+#[Fillable(['username', 'name', 'email', 'password', 'rol', 'iniciales', 'descripcion', 'activo'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -25,9 +26,21 @@ class User extends Authenticatable
         return $this->hasMany(Pedido::class);
     }
 
+    /** Lotes que este usuario evaluó en el control de calidad (HU07). */
+    public function lotesEvaluados(): HasMany
+    {
+        return $this->hasMany(Lote::class, 'evaluado_por');
+    }
+
     public function puedeVer(Seccion $seccion): bool
     {
-        return $this->rol->puedeVer($seccion);
+        return $this->activo && $this->rol->puedeVer($seccion);
+    }
+
+    /** Iniciales que se muestran cuando la cuenta no las tiene registradas. */
+    public function inicialesVisibles(): string
+    {
+        return $this->iniciales ?: Str::upper(Str::substr($this->name, 0, 2));
     }
 
     /**
@@ -49,6 +62,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'rol' => Rol::class,
+            'activo' => 'boolean',
         ];
     }
 }

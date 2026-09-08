@@ -1,4 +1,4 @@
-@props(['producto', 'carrito', 'puedeGestionarInventario' => false])
+@props(['producto', 'carrito', 'puedeEditarCatalogo' => false])
 
 @php
     $disponible = $carrito->disponible($producto);
@@ -10,6 +10,12 @@
     'relative flex flex-col rounded-2xl border border-coffee-200 bg-white transition hover:border-coffee-300 hover:shadow-lg hover:shadow-coffee-800/5',
     'opacity-60' => $producto->agotado(),
 ])>
+    @if ($producto->promocionVigente())
+        <span class="absolute left-4 top-4 z-10 rounded-full bg-mostaza-500 px-2.5 py-1 text-xs font-bold text-coffee-900">
+            {{ $producto->tieneDescuento() ? '-'.$producto->descuento.'%' : 'Destacado' }}
+        </span>
+    @endif
+
     @if ($enPedido > 0)
         <span class="absolute right-4 top-4 z-10 rounded-full bg-coffee-700 px-2.5 py-1 text-xs font-bold text-white">
             {{ $enPedido }} en el pedido
@@ -32,6 +38,15 @@
         </p>
         <p class="mt-2 flex-1 text-sm leading-relaxed text-coffee-700/70">{{ $producto->descripcion }}</p>
 
+        @if ($producto->promocionVigente() && $producto->promocion_titulo)
+            <p class="mt-2 rounded-lg bg-mostaza-400/20 px-3 py-1.5 text-xs font-semibold text-coffee-800">
+                {{ $producto->promocion_titulo }}
+                @if ($producto->promocion_termina_at)
+                    · hasta el {{ $producto->promocion_termina_at->format('d/m') }}
+                @endif
+            </p>
+        @endif
+
         @if ($producto->bajoStock())
             <p class="mt-1 text-xs font-semibold text-mostaza-500">Quedan {{ $producto->stock }} uds en almacén</p>
         @endif
@@ -39,7 +54,13 @@
         <div class="mt-4 flex items-end justify-between gap-3">
             <p>
                 <span class="block text-xs font-semibold uppercase tracking-wide text-coffee-700/50">Precio</span>
-                <x-precio :valor="$producto->precio" class="font-display text-2xl font-bold text-coffee-800" />
+                <x-precio :valor="$producto->precioVigente()" class="font-display text-2xl font-bold text-coffee-800" />
+
+                @if ($producto->tieneDescuento())
+                    <span class="ml-1 text-sm text-coffee-700/50">
+                        antes <x-precio :valor="$producto->precio" class="line-through" />
+                    </span>
+                @endif
             </p>
 
             @if ($producto->agotado())
@@ -58,7 +79,7 @@
             @endif
         </div>
 
-        @if ($puedeGestionarInventario)
+        @if ($puedeEditarCatalogo)
             <div class="mt-4 border-t border-coffee-200 pt-3">
                 <p class="text-[11px] font-semibold uppercase tracking-wide text-coffee-700/40">Foto del producto</p>
 

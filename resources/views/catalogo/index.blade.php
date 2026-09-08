@@ -16,6 +16,10 @@
         </div>
     </section>
 
+    @if ($destacados->isNotEmpty())
+        <x-promocion-banner :$destacados />
+    @endif
+
     <form method="GET" action="{{ route('catalogo.index') }}" class="mt-8">
         <input type="hidden" name="categoria" value="{{ $categoria?->value }}" />
 
@@ -43,7 +47,7 @@
 
     <div class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         @forelse ($productos as $producto)
-            <x-producto-tarjeta :$producto :$carrito :$puedeGestionarInventario />
+            <x-producto-tarjeta :$producto :$carrito :$puedeEditarCatalogo />
         @empty
             <p class="col-span-full rounded-2xl border border-dashed border-coffee-300 p-10 text-center text-sm text-coffee-700/60">
                 No encontramos cafés que coincidan con la búsqueda.
