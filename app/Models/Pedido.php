@@ -6,6 +6,7 @@ use App\Enums\EstadoPago;
 use App\Enums\EstadoPedido;
 use App\Enums\MetodoPago;
 use App\Enums\TipoEntrega;
+use App\Models\Concerns\Auditable;
 use App\Support\ResultadoPago;
 use Database\Factories\PedidoFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -25,7 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Pedido extends Model
 {
     /** @use HasFactory<PedidoFactory> */
-    use HasFactory;
+    use Auditable, HasFactory;
 
     public function getRouteKeyName(): string
     {

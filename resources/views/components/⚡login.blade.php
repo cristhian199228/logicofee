@@ -28,7 +28,7 @@ new #[Layout('components.layouts.invitado', ['titulo' => 'Iniciar sesión'])] cl
     #[Computed]
     public function cuentasDemo(): array
     {
-        return config('logicoffee.cuentas_demo');
+        return config('logicoffee.mostrar_cuentas_demo') ? config('logicoffee.cuentas_demo') : [];
     }
 
     /** Completa el formulario con la cuenta de demostración elegida. */
@@ -189,34 +189,36 @@ new #[Layout('components.layouts.invitado', ['titulo' => 'Iniciar sesión'])] cl
     </section>
 
     {{-- Cuentas del seeder, para probar cada rol sin crear usuarios a mano. --}}
-    <section class="mt-6 w-full max-w-md rounded-3xl border border-coffee-300 bg-white p-6 shadow-sm shadow-coffee-800/5"
-        aria-labelledby="cuentas-demo-titulo">
+    @if ($this->cuentasDemo)
+        <section class="mt-6 w-full max-w-md rounded-3xl border border-coffee-300 bg-white p-6 shadow-sm shadow-coffee-800/5"
+            aria-labelledby="cuentas-demo-titulo">
 
-        <h2 id="cuentas-demo-titulo" class="font-display text-lg font-bold text-coffee-800">Cuentas de demostración</h2>
-        <p class="mt-1 text-sm leading-relaxed text-coffee-700/70">
-            Todas comparten la contraseña
-            <span class="font-mono font-bold text-coffee-800">{{ config('logicoffee.password_demo') }}</span>.
-            Elige una para completar el formulario.
-        </p>
+            <h2 id="cuentas-demo-titulo" class="font-display text-lg font-bold text-coffee-800">Cuentas de demostración</h2>
+            <p class="mt-1 text-sm leading-relaxed text-coffee-700/70">
+                Todas comparten la contraseña
+                <span class="font-mono font-bold text-coffee-800">{{ config('logicoffee.password_demo') }}</span>.
+                Elige una para completar el formulario.
+            </p>
 
-        <ul class="mt-4 space-y-2">
-            @foreach ($this->cuentasDemo as $cuenta)
-                <li>
-                    <button type="button" wire:click="usarCuentaDemo('{{ $cuenta['username'] }}')"
-                        title="{{ $cuenta['descripcion'] }}"
-                        class="flex w-full items-center gap-3 rounded-2xl border border-coffee-200 bg-coffee-50 px-3 py-2.5 text-left transition hover:border-coffee-400 hover:bg-coffee-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-coffee-500/20">
-                        <span class="grid size-9 shrink-0 place-items-center rounded-full bg-coffee-700 text-xs font-bold text-coffee-100">
-                            {{ $cuenta['iniciales'] }}
-                        </span>
-                        <span class="min-w-0 flex-1">
-                            <span class="block truncate text-sm font-semibold text-coffee-800">{{ $cuenta['name'] }}</span>
-                            <span class="block truncate text-xs text-coffee-700/60">
-                                <span class="font-mono">{{ $cuenta['username'] }}</span> · {{ $cuenta['rol'] }}
+            <ul class="mt-4 space-y-2">
+                @foreach ($this->cuentasDemo as $cuenta)
+                    <li>
+                        <button type="button" wire:click="usarCuentaDemo('{{ $cuenta['username'] }}')"
+                            title="{{ $cuenta['descripcion'] }}"
+                            class="flex w-full items-center gap-3 rounded-2xl border border-coffee-200 bg-coffee-50 px-3 py-2.5 text-left transition hover:border-coffee-400 hover:bg-coffee-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-coffee-500/20">
+                            <span class="grid size-9 shrink-0 place-items-center rounded-full bg-coffee-700 text-xs font-bold text-coffee-100">
+                                {{ $cuenta['iniciales'] }}
                             </span>
-                        </span>
-                    </button>
-                </li>
-            @endforeach
-        </ul>
-    </section>
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate text-sm font-semibold text-coffee-800">{{ $cuenta['name'] }}</span>
+                                <span class="block truncate text-xs text-coffee-700/60">
+                                    <span class="font-mono">{{ $cuenta['username'] }}</span> · {{ $cuenta['rol'] }}
+                                </span>
+                            </span>
+                        </button>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
 </main>

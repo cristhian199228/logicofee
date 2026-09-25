@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CabecerasDeSeguridad;
 use App\Http\Middleware\EnsureCuentaActiva;
 use App\Http\Middleware\EnsureSeccionPermitida;
 use Illuminate\Foundation\Application;
@@ -18,6 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // X-Forwarded-Proto; sin esto los assets se piden por http y el
         // navegador los bloquea como contenido mixto.
         $middleware->trustProxies(at: '*');
+
+        $middleware->web(append: [CabecerasDeSeguridad::class]);
 
         $middleware->alias([
             'seccion' => EnsureSeccionPermitida::class,

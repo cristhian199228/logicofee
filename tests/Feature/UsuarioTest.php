@@ -32,8 +32,8 @@ class UsuarioTest extends TestCase
             ->set('username', 'despacho')
             ->set('name', 'Ana Quispe')
             ->set('email', 'despacho@logicoffee.test')
-            ->set('password', 'demo12345')
-            ->set('password_confirmation', 'demo12345')
+            ->set('password', 'Cafe12345')
+            ->set('password_confirmation', 'Cafe12345')
             ->set('rol', Rol::Proveedor->value)
             ->set('descripcion', 'Coordina la entrega de pedidos.')
             ->call('crear')
@@ -44,7 +44,7 @@ class UsuarioTest extends TestCase
         $this->assertSame(Rol::Proveedor, $usuario->rol);
         $this->assertTrue($usuario->activo);
         $this->assertSame('AQ', $usuario->iniciales);
-        $this->assertTrue(Hash::check('demo12345', $usuario->password));
+        $this->assertTrue(Hash::check('Cafe12345', $usuario->password));
     }
 
     public function test_el_usuario_no_se_repite(): void
@@ -56,8 +56,8 @@ class UsuarioTest extends TestCase
             ->set('username', 'despacho')
             ->set('name', 'Ana Quispe')
             ->set('email', 'otro@logicoffee.test')
-            ->set('password', 'demo12345')
-            ->set('password_confirmation', 'demo12345')
+            ->set('password', 'Cafe12345')
+            ->set('password_confirmation', 'Cafe12345')
             ->set('rol', Rol::Cliente->value)
             ->call('crear')
             ->assertHasErrors('username');
