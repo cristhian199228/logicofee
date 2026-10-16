@@ -48,6 +48,16 @@ return [
             'driver' => 'mysql',
             'url' => env('DB_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
+            // Replicación primario-secundario: las lecturas van a la réplica
+            // (DB_READ_HOST) y las escrituras al primario (DB_HOST). "sticky"
+            // hace que, tras escribir, la misma petición lea del primario.
+            'read' => [
+                'host' => [env('DB_READ_HOST') ?: env('DB_HOST', '127.0.0.1')],
+            ],
+            'write' => [
+                'host' => [env('DB_HOST', '127.0.0.1')],
+            ],
+            'sticky' => true,
             'port' => env('DB_PORT', '3306'),
             'database' => env('DB_DATABASE', 'laravel'),
             'username' => env('DB_USERNAME', 'root'),

@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    // Biblioteca de SharePoint donde se suben los respaldos diarios de la base
+    // de datos (app registrada en Microsoft Entra ID con permiso Sites.ReadWrite.All).
+    'sharepoint' => [
+        'tenant_id' => env('SHAREPOINT_TENANT_ID'),
+        'client_id' => env('SHAREPOINT_CLIENT_ID'),
+        'client_secret' => env('SHAREPOINT_CLIENT_SECRET'),
+        'site_id' => env('SHAREPOINT_SITE_ID'),
+        'carpeta' => env('SHAREPOINT_CARPETA', 'Respaldos LogiCoffee'),
+        'dias_locales' => env('RESPALDOS_DIAS_LOCALES', 7),
+    ],
+
 ];
