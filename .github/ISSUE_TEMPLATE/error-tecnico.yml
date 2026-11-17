@@ -1,0 +1,74 @@
+name: Error técnico
+description: Registrar un error de la aplicación LogiCoffee (backend, frontend o base de datos).
+title: "[ERROR] "
+labels: ["bug", "pendiente"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Completa todos los campos. Asigna un responsable en el panel derecho (**Assignees**).
+        Al corregirlo, enlaza el commit o Pull Request con `Closes #<número>`.
+  - type: dropdown
+    id: modulo
+    attributes:
+      label: Módulo afectado
+      options:
+        - Autenticación / Usuarios
+        - Pedidos
+        - Productos
+        - Lotes / Inventario
+        - Reportes (descarga)
+        - Base de datos
+        - Otro
+    validations:
+      required: true
+  - type: dropdown
+    id: severidad
+    attributes:
+      label: Severidad
+      options:
+        - Crítica (el sistema no funciona)
+        - Alta (funcionalidad principal bloqueada)
+        - Media (hay alternativa temporal)
+        - Baja (detalle visual o menor)
+    validations:
+      required: true
+  - type: textarea
+    id: descripcion
+    attributes:
+      label: Descripción del error
+      description: ¿Qué ocurrió?
+    validations:
+      required: true
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Pasos para reproducir
+      placeholder: |
+        1. Ingresar a ...
+        2. Hacer clic en ...
+        3. Ver error
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Resultado esperado
+    validations:
+      required: true
+  - type: textarea
+    id: evidencias
+    attributes:
+      label: Evidencias
+      description: Capturas de pantalla, fragmento de `storage/logs/laravel.log`, salida de `sail logs`, capturas de Grafana, etc. Puedes arrastrar imágenes aquí.
+      render: shell
+  - type: input
+    id: entorno
+    attributes:
+      label: Entorno
+      placeholder: "Local (Sail) / Producción — navegador y versión"
+  - type: textarea
+    id: solucion
+    attributes:
+      label: Solución aplicada
+      description: Completar al cerrar el issue. Describe la causa raíz y el cambio realizado, con enlace al commit o PR.

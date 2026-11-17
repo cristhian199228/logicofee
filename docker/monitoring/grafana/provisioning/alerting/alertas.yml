@@ -1,0 +1,142 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: logicoffee-infraestructura
+    folder: LogiCoffee
+    interval: 1m
+    rules:
+      - uid: cpu-alta
+        title: CPU alta en contenedor
+        condition: C
+        for: 2m
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: sum by (container_label_com_docker_compose_project, container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service!=""}[2m])) * 100
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [80] }
+        noDataState: OK
+        execErrState: Error
+        labels: { severidad: advertencia }
+        annotations:
+          summary: 'El contenedor {{ $labels.container_label_com_docker_compose_project }}/{{ $labels.container_label_com_docker_compose_service }} usa más del 80% de CPU'
+          description: 'Valor actual: {{ $values.A }}%. Revisar con: sail logs {{ $labels.container_label_com_docker_compose_service }}'
+
+      - uid: memoria-alta
+        title: Memoria alta en contenedor
+        condition: C
+        for: 2m
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: sum by (container_label_com_docker_compose_project, container_label_com_docker_compose_service) (container_memory_working_set_bytes{container_label_com_docker_compose_service!=""}) / 1024 / 1024
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [1024] }
+        noDataState: OK
+        execErrState: Error
+        labels: { severidad: advertencia }
+        annotations:
+          summary: 'El contenedor {{ $labels.container_label_com_docker_compose_project }}/{{ $labels.container_label_com_docker_compose_service }} usa más de 1 GB de memoria'
+          description: 'Valor actual: {{ $values.A }} MB'
+
+      - uid: mysql-caido
+        title: MySQL no responde
+        condition: C
+        for: 1m
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: mysql_up
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: { severidad: critica }
+        annotations:
+          summary: El servidor MySQL de LogiCoffee no responde
+          description: 'Verificar con: sail ps y sail logs mysql'
+
+      - uid: mysql-conexiones-altas
+        title: Conexiones MySQL cerca del límite
+        condition: C
+        for: 2m
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: mysql_global_status_threads_connected / mysql_global_variables_max_connections * 100
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [80] }
+        noDataState: OK
+        execErrState: Error
+        labels: { severidad: advertencia }
+        annotations:
+          summary: MySQL usa más del 80% de las conexiones permitidas
+          description: 'Uso actual: {{ $values.A }}%. Revisar SHOW PROCESSLIST.'
+
+      - uid: mysql-consultas-lentas
+        title: Consultas lentas en MySQL
+        condition: C
+        for: 0s
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: increase(mysql_global_status_slow_queries[5m])
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: OK
+        execErrState: Error
+        labels: { severidad: informativa }
+        annotations:
+          summary: Se registraron consultas lentas (> 1 s) en los últimos 5 minutos
+          description: 'Cantidad: {{ $values.A }}. Ver panel "Registro de consultas lentas" o mysql.slow_log.'

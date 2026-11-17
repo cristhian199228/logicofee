@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # CPU, memoria, red y disco de cada contenedor Docker/Sail
+  - job_name: cadvisor
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # Métricas de MySQL 8.4 (conexiones, consultas, consultas lentas)
+  - job_name: mysql
+    static_configs:
+      - targets: ['mysqld-exporter:9104']
