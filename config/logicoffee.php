@@ -54,7 +54,13 @@ return [
     | abra el login: son solo para la demostración y deben eliminarse, junto con
     | este listado, antes de un uso real.
     |
+    | Por eso la pantalla de ingreso solo las ofrece fuera de producción. Para
+    | una presentación publicada con APP_ENV=production se habilitan a propósito
+    | con LOGICOFFEE_CUENTAS_DEMO=true.
+    |
     */
+
+    'mostrar_cuentas_demo' => (bool) env('LOGICOFFEE_CUENTAS_DEMO', env('APP_ENV', 'production') !== 'production'),
 
     'password_demo' => env('LOGICOFFEE_PASSWORD_DEMO', 'demo1234'),
 

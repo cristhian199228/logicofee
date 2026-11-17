@@ -48,7 +48,7 @@ new class extends Component
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignoreModel($this->usuario)],
-            'password' => ['nullable', 'string', 'confirmed', Password::min(8)],
+            'password' => ['nullable', 'string', 'confirmed', Password::defaults()],
             'rol' => ['required', Rule::enum(Rol::class)],
             'descripcion' => ['nullable', 'string', 'max:255'],
         ];

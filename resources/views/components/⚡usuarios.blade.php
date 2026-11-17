@@ -46,7 +46,7 @@ new #[Layout('components.layouts.app', ['titulo' => 'Usuarios y roles'])] class 
             'username' => ['required', 'string', 'alpha_dash', 'max:30', Rule::unique('users', 'username')],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
-            'password' => ['required', 'string', 'confirmed', Password::min(8)],
+            'password' => ['required', 'string', 'confirmed', Password::defaults()],
             'rol' => ['required', Rule::enum(Rol::class)],
             'descripcion' => ['nullable', 'string', 'max:255'],
         ];

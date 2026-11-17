@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -27,6 +28,14 @@ class AppServiceProvider extends ServiceProvider
     {
         Model::shouldBeStrict(! $this->app->isProduction());
         Vite::prefetch(concurrency: 3);
+
+        // Contraseñas de las cuentas que crea o cambia el administrador. La
+        // consulta de filtraciones sale a un servicio externo: solo en producción.
+        Password::defaults(function () {
+            $regla = Password::min(8)->letters()->mixedCase()->numbers();
+
+            return $this->app->isProduction() ? $regla->uncompromised() : $regla;
+        });
 
         // Cada área de la empresa mueve la parte del sistema que le toca.
         Gate::define('gestionar-inventario', fn (User $usuario) => $usuario->rol->puedeMoverAlmacen());
