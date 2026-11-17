@@ -1,0 +1,53 @@
+name: Incidente de infraestructura
+description: Problemas con contenedores Docker/Sail, MySQL, rendimiento o alertas de Grafana.
+title: "[INFRA] "
+labels: ["infraestructura", "pendiente"]
+body:
+  - type: dropdown
+    id: servicio
+    attributes:
+      label: Servicio afectado
+      multiple: true
+      options:
+        - laravel.test (aplicación)
+        - mysql
+        - redis
+        - meilisearch
+        - mailpit
+        - grafana / prometheus
+    validations:
+      required: true
+  - type: dropdown
+    id: origen
+    attributes:
+      label: ¿Cómo se detectó?
+      options:
+        - Alerta de Grafana
+        - Contenedor detenido (sail ps)
+        - Error en logs
+        - Consulta lenta en MySQL
+        - Reporte de usuario
+    validations:
+      required: true
+  - type: textarea
+    id: descripcion
+    attributes:
+      label: Descripción del incidente
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostico
+    attributes:
+      label: Salida de diagnóstico
+      description: Pega la salida de `./vendor/bin/sail ps`, `./vendor/bin/sail logs <servicio>`, `SHOW PROCESSLIST`, etc.
+      render: shell
+  - type: textarea
+    id: evidencias
+    attributes:
+      label: Evidencias
+      description: Capturas de paneles de Grafana u otras imágenes.
+  - type: textarea
+    id: solucion
+    attributes:
+      label: Solución aplicada
+      description: Completar al cerrar. Incluye el commit/PR relacionado.
